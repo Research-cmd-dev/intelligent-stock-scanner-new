@@ -1,0 +1,21 @@
+# --- core data & indicators ---
+pandas>=2.2,<3
+numpy>=1.26,<3
+pandas-ta>=0.3.14b0
+
+# --- data sources ---
+polygon-api-client>=1.14
+yfinance>=0.2.40
+
+# --- dashboard ---
+streamlit>=1.32
+plotly>=5.20
+
+# --- config & utilities ---
+python-dotenv>=1.0
+requests>=2.31
+pyarrow>=15.0           # parquet cache backend
+tenacity>=8.2           # retry/backoff on API failures
+
+# --- dev / test ---
+pytest>=8.0

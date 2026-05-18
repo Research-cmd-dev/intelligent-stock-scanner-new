@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Env / secrets
+.env
+.env.local
+*.key
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Cache / data artifacts (keep the directory, ignore contents)
+data/cache/*
+!data/cache/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
