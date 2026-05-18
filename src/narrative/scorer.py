@@ -26,16 +26,25 @@ from datetime import datetime, timedelta, timezone
 
 from src.utils import get_logger
 
+from .catalysts import CatalystTag, aggregate_catalysts, detect_catalysts
 from .sentiment import LexiconSentiment, Sentiment
 from .sources import NewsItem, NewsSource, default_sources
 from .sources import cache as news_cache
 from .sources.base import utc_now
+from .themes import ThemeTag, aggregate_themes, detect_themes
 
 log = get_logger(__name__)
 
 
 # Default blend: 80% pattern, 20% narrative — overridable per scan.
 DEFAULT_NARRATIVE_WEIGHT = 0.20
+
+# How much per-item theme + catalyst tags boost that item's weight in
+# the polarity aggregate. A fully tagged bullish article ends up
+# counting ~1.5x a generic bullish article without disturbing its
+# sign — so themes/catalysts amplify but never override sentiment.
+THEME_WEIGHT_BOOST = 0.30
+CATALYST_WEIGHT_BOOST = 0.30
 
 
 @dataclass(frozen=True)
@@ -58,6 +67,8 @@ class NarrativeResult:
     top_items: tuple[NewsItem, ...]
     as_of: datetime
     cache_hit: bool = False
+    themes: tuple[ThemeTag, ...] = ()
+    catalysts: tuple[CatalystTag, ...] = ()
 
     def to_row(self) -> dict[str, object]:
         """Flat dict for table rendering."""
@@ -66,6 +77,8 @@ class NarrativeResult:
             "narrative_polarity": round(self.polarity, 3),
             "narrative_items": self.item_count,
             "narrative_sources": ", ".join(self.sources_used),
+            "narrative_themes": ", ".join(t.name for t in self.themes),
+            "narrative_catalysts": ", ".join(c.label for c in self.catalysts),
             "narrative_explanation": self.explanation,
         }
 
@@ -130,24 +143,43 @@ class NarrativeScorer:
         items = _dedup(items)
         items.sort(key=lambda i: i.published_utc, reverse=True)
 
+        # Sentiment + theme + catalyst tagging on each item. Tags drive
+        # both the per-item weight in the polarity aggregate and the
+        # narrative-level summary attached to the result.
         scored = [(i, self.sentiment.score_item(i)) for i in items]
+        item_themes = [detect_themes(_full_text(i)) for i in items]
+        item_catalysts = [detect_catalysts(_full_text(i)) for i in items]
+        boosts = [
+            _item_boost(themes=th, catalysts=cat)
+            for th, cat in zip(item_themes, item_catalysts)
+        ]
+
         polarity = _aggregate_polarity(
-            scored, now=now, half_life_days=self.recency_half_life_days
+            scored, now=now, half_life_days=self.recency_half_life_days,
+            boosts=boosts,
         )
         score = _polarity_to_score(polarity, item_count=len(items))
         top = _pick_top(scored, k=3)
+
+        themes = aggregate_themes(item_themes)
+        catalysts = aggregate_catalysts(item_catalysts)
 
         return NarrativeResult(
             ticker=symbol,
             score=score,
             polarity=polarity,
-            explanation=_render_explanation(symbol, scored, polarity, now),
+            explanation=_render_explanation(
+                symbol, scored, polarity, now,
+                themes=themes, catalysts=catalysts,
+            ),
             item_count=len(items),
             sources_used=tuple(sorted({i.provider for i in items})),
             publishers=tuple(sorted({i.publisher for i in items if i.publisher})),
             top_items=top,
             as_of=now,
             cache_hit=cache_hit,
+            themes=themes,
+            catalysts=catalysts,
         )
 
     # ------------------------------------------------------------------ #
@@ -230,6 +262,7 @@ def _aggregate_polarity(
     *,
     now: datetime,
     half_life_days: float,
+    boosts: list[float] | None = None,
 ) -> float:
     """Recency-weighted average polarity over scored items.
 
@@ -238,22 +271,48 @@ def _aggregate_polarity(
     sentiment (no lexicon hit, no external label) are still counted in
     the weight denominator so a flood of neutral coverage drags the
     aggregate toward zero rather than being silently ignored.
+
+    ``boosts`` is an optional per-item conviction multiplier in
+    ``[0, ~0.6]`` produced from theme + catalyst tags. A boosted item
+    counts more in both the numerator and the denominator, so a
+    bullish article *about a recognized high-conviction theme*
+    pulls the aggregate harder than a generic bullish article without
+    distorting the sign.
     """
     if not scored:
         return 0.0
     weighted_sum = 0.0
     weight_sum = 0.0
-    for item, sentiment in scored:
+    for idx, (item, sentiment) in enumerate(scored):
         age_days = max(
             (now - _ensure_aware(item.published_utc)).total_seconds() / 86_400.0,
             0.0,
         )
-        w = 0.5 ** (age_days / half_life_days)
+        recency_w = 0.5 ** (age_days / half_life_days)
+        boost = boosts[idx] if boosts is not None else 0.0
+        w = recency_w * (1.0 + boost)
         weighted_sum += w * sentiment
         weight_sum += w
     if weight_sum == 0.0:
         return 0.0
     return weighted_sum / weight_sum
+
+
+def _item_boost(*, themes: list[ThemeTag], catalysts: list[CatalystTag]) -> float:
+    """Combine theme + catalyst tags into a single weight multiplier."""
+    if not themes and not catalysts:
+        return 0.0
+    theme_strength = max((t.relevance for t in themes), default=0.0)
+    catalyst_strength = max((c.strength for c in catalysts), default=0.0)
+    return (
+        THEME_WEIGHT_BOOST * theme_strength
+        + CATALYST_WEIGHT_BOOST * catalyst_strength
+    )
+
+
+def _full_text(item: NewsItem) -> str:
+    """Combine title + summary for theme/catalyst keyword scanning."""
+    return f"{item.title} {item.summary}".strip()
 
 
 def _polarity_to_score(polarity: float, *, item_count: int) -> float:
@@ -293,8 +352,17 @@ def _render_explanation(
     scored: list[tuple[NewsItem, float]],
     polarity: float,
     now: datetime,
+    *,
+    themes: tuple[ThemeTag, ...] = (),
+    catalysts: tuple[CatalystTag, ...] = (),
 ) -> str:
-    """Compose a one-to-two sentence English summary of the news read."""
+    """Compose a one-to-two sentence English summary of the news read.
+
+    Surfaces the top one or two themes and the strongest catalyst when
+    present — the dashboard / table view can show this verbatim and a
+    reader sees both *what the story is* (theme) and *why now*
+    (catalyst).
+    """
     if not scored:
         return f"No recent news for {symbol}."
 
@@ -308,9 +376,21 @@ def _render_explanation(
         f"tone {tone} ({pos}+ / {neg}- / {neutral}~)",
     ]
 
-    top = _pick_top(scored, k=1)
-    if top:
-        item = top[0]
+    if themes:
+        names = [t.name for t in themes[:2] if t.relevance >= 0.4]
+        if names:
+            joined = " + ".join(names)
+            label = "theme" if len(names) == 1 else "themes"
+            parts.append(f"{label}: {joined}")
+
+    if catalysts:
+        top = catalysts[0]
+        if top.strength >= 0.4:
+            parts.append(f"catalyst: {top.label.lower()}")
+
+    top_items = _pick_top(scored, k=1)
+    if top_items:
+        item = top_items[0]
         age_days = max(
             (now - _ensure_aware(item.published_utc)).days, 0
         )

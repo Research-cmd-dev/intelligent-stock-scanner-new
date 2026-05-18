@@ -151,20 +151,61 @@ otherwise. To swap in an LLM sentiment engine: implement the protocol
 and pass it as `NarrativeScorer(sentiment=MyLLM())` — no other call sites
 change.
 
+### Theme + catalyst detection
+
+Two new modules add structured awareness to the scorer:
+
+- **`themes.py`** — keyword-based detection of recurring storylines:
+  *AI Infrastructure*, *Power + Compute* (cheap power paired with
+  GPU/AI), *Miner-to-AI Pivot*, *Neocloud / GPU Cloud*, *Data Center
+  Build-out*, *Nuclear for AI*, *Sovereign AI*. Each theme has
+  `core_terms` (one must match), `support_terms` (each boosts
+  relevance), and optional `required_pairs` so composite themes only
+  fire when both halves of the story appear ("bitcoin miner" *and*
+  "AI", "hydropower" *and* "GPU"). Returns
+  `list[ThemeTag(name, relevance ∈ [0,1], matched_terms)]`.
+- **`catalysts.py`** — phrase-based detection of discrete events:
+  *contract*, *funding*, *expansion*, *pivot*, *m&a*,
+  *earnings_beat*, *partnership*, *approval*. Each kind has
+  `phrases` and optional `strong_phrases` (anchor customer,
+  oversubscribed, gigawatt-scale, …). Returns
+  `list[CatalystTag(kind, label, strength, matched_terms)]`.
+
+Detection is intentionally rule-based — no ML — so the catalog is
+auditable and easy to retune in one file. To add a theme or catalyst,
+drop a `ThemeDef` / `CatalystDef` into the module's `DEFAULT_*` tuple
+and add a canned-headline test.
+
 ### Score → 0-1 mapping
 
 For each item the scorer:
 
 1. Calls `sentiment.score_item(item)` → polarity in `[-1, +1]`.
-2. Weights items by recency on a `0.5 ** (age_days / half_life)` curve
-   (default half-life 5 days). Older items contribute proportionally
-   less; items with zero sentiment still count in the denominator so a
-   flood of neutral coverage drags the aggregate toward zero.
-3. Aggregates into a weighted-average polarity, then maps to `[0, 1]`
+2. Tags the item's title + summary with themes + catalysts. The two
+   tag sets feed a per-item *conviction boost* in
+   `[0, ~0.6]` = `0.30 * theme_strength + 0.30 * catalyst_strength`.
+3. Weights items by recency on a `0.5 ** (age_days / half_life)` curve
+   (default half-life 5 days), then multiplies that weight by
+   `(1 + conviction_boost)`. A bullish article about a recognized
+   high-conviction theme *with* a catalyst counts ~1.6x a generic
+   bullish article — but a *bearish* article on the same themes
+   keeps its negative sign and pulls harder too. Themes / catalysts
+   amplify, they never override sentiment direction.
+4. Items with zero sentiment still count in the weight denominator so
+   a flood of neutral coverage drags the aggregate toward zero.
+5. Aggregates into a weighted-average polarity, then maps to `[0, 1]`
    with `0.5 + 0.5 * polarity` (0.5 = neutral / no signal).
-4. Damps thin coverage: ≤2 items → score pulled half-way toward 0.5.
-5. Builds an explanation: `"{N} recent articles; tone bullish (2+/0-/1~);
-   top: 'headline' (Publisher, 2d ago)."`
+6. Damps thin coverage: ≤2 items → score pulled half-way toward 0.5.
+7. Aggregates per-item theme + catalyst tags across the basket — a
+   theme that shows up across multiple articles strengthens, an
+   isolated tag stays modest. Top three of each are attached to
+   `NarrativeResult.themes` / `.catalysts`.
+8. Builds an explanation that surfaces the strongest signals:
+   `"{N} recent articles; tone bullish (2+/0-/1~); themes: Miner-to-AI
+   Pivot + Power + Compute; catalyst: customer / contract win; top:
+   'headline' (Publisher, 2d ago)."` Themes / catalysts only appear
+   when their aggregate score clears 0.4 — keeps the line clean on
+   generic coverage.
 
 ### Composite blending
 
@@ -178,6 +219,27 @@ Override per scan via `Scanner(narrative_weight=...)`. The default means
 neutral news (0.5) costs a strong pattern ~10 points relative to
 pattern-only — small enough that pattern dominates, large enough that
 clearly bullish or bearish news re-ranks similar-quality patterns.
+
+### Why this helps with emerging small-cap AI-infra setups
+
+A traditional sentiment-only scorer treats "miner signs hyperscaler
+deal for AI compute" and "miner reports quarterly metrics" as
+equivalent bullish coverage. The theme + catalyst layer separates
+them:
+
+- *Theme* recognition surfaces that the first story is a
+  *Miner-to-AI Pivot + Power + Compute + Data Center Build-out* play
+  — three composite themes the agent specifically watches for.
+- *Catalyst* recognition tags the same article as a `contract` event
+  with `anchor customer` strength — a step-change event, not a routine
+  update.
+- The combined boost pulls the per-item weight ~1.5x, so a thin news
+  basket on an emerging name can still produce a clear bullish
+  narrative score when the few items that exist are the *right kind*
+  of items.
+- The explanation surfaces both layers in plain English, so a reader
+  can scan a ranked match list and see *why* a small-cap is suddenly
+  on the radar — not just that "sentiment is up."
 
 ### Integration points
 
