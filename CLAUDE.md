@@ -106,6 +106,104 @@ symbol logs a warning and is dropped — it never aborts the run.
 3. Add a synthetic series in `tests/synthetic.py` plus a positive and a
    negative test in `tests/test_detectors.py`.
 
+## Narrative layer
+
+Lives in `src/narrative/`. Public entry: `NarrativeScorer.score(ticker)
+-> NarrativeResult`. The scorer is optional — passing one to `Scanner`
+enriches every match with a narrative read and a composite score;
+omitting it leaves the scanner pattern-only and unchanged in behavior.
+
+### Sources
+
+Each source is a small adapter implementing the `NewsSource` protocol
+(`name`, `fetch(symbol, limit) -> list[NewsItem]`). Two ship by default:
+
+- **`PolygonNewsSource`** — `/v2/reference/news`. Surfaces Polygon's
+  per-ticker `insights[].sentiment` as `NewsItem.external_sentiment`.
+  This label beats word counts and is preferred by the sentiment engine
+  when present.
+- **`YFinanceNewsSource`** — `yf.Ticker(sym).news`. Handles both the
+  modern (`content.{title,summary,pubDate,…}`) and legacy flat shapes
+  defensively so an upstream layout change degrades gracefully.
+
+Both sources return `[]` on any failure (auth, quota, parse) and log a
+warning. A failing news source must never abort a scan.
+
+`default_sources()` returns `[Polygon, yfinance]` — order matters
+because dedup keeps the first occurrence, so the higher-quality feed
+wins on conflicts.
+
+News is cached to `data/cache/news/{SYMBOL}_{YYYY-MM-DD}.json` and
+considered fresh for the rest of the UTC day — same contract as the
+OHLCV cache.
+
+### Sentiment
+
+`Sentiment` is a protocol with a single `score_item(NewsItem) -> float`
+in `[-1, +1]`. The default `LexiconSentiment` uses the bundled
+finance-flavored lexicon in `src/narrative/lexicon.py`: positive vs.
+negative word + phrase counts → `(pos - neg) / max(pos + neg, 1)`.
+Articles with no lexicon hit score 0 (no signal, not "neutral").
+
+`LexiconSentiment(prefer_external=True)` (the default) returns the
+upstream `external_sentiment` when present, falling back to the lexicon
+otherwise. To swap in an LLM sentiment engine: implement the protocol
+and pass it as `NarrativeScorer(sentiment=MyLLM())` — no other call sites
+change.
+
+### Score → 0-1 mapping
+
+For each item the scorer:
+
+1. Calls `sentiment.score_item(item)` → polarity in `[-1, +1]`.
+2. Weights items by recency on a `0.5 ** (age_days / half_life)` curve
+   (default half-life 5 days). Older items contribute proportionally
+   less; items with zero sentiment still count in the denominator so a
+   flood of neutral coverage drags the aggregate toward zero.
+3. Aggregates into a weighted-average polarity, then maps to `[0, 1]`
+   with `0.5 + 0.5 * polarity` (0.5 = neutral / no signal).
+4. Damps thin coverage: ≤2 items → score pulled half-way toward 0.5.
+5. Builds an explanation: `"{N} recent articles; tone bullish (2+/0-/1~);
+   top: 'headline' (Publisher, 2d ago)."`
+
+### Composite blending
+
+`blend_composite(pattern_score, narrative, narrative_weight=0.2)` in
+`src/narrative/scorer.py` is the canonical formula:
+
+    composite = (1 - w) * pattern_score + w * (narrative.score * 100)
+
+Defaults: 80% pattern, 20% narrative (`DEFAULT_NARRATIVE_WEIGHT`).
+Override per scan via `Scanner(narrative_weight=...)`. The default means
+neutral news (0.5) costs a strong pattern ~10 points relative to
+pattern-only — small enough that pattern dominates, large enough that
+clearly bullish or bearish news re-ranks similar-quality patterns.
+
+### Integration points
+
+- `MatchResult` gained two nullable fields: `narrative: NarrativeResult
+  | None` and `composite_score: float | None`. The `effective_score`
+  property returns composite when present, pattern score otherwise —
+  ranking code uses this property and stays agnostic about whether
+  narrative was enabled.
+- `Scanner(narrative_scorer=..., narrative_weight=...)` wires the layer.
+  Narrative scoring runs only on symbols that produced at least one
+  pattern hit (one news fetch per unique symbol, not per match) — much
+  cheaper than scoring the whole universe.
+- A narrative scoring failure on one symbol logs a warning and leaves
+  that match's pattern-only composite intact; it never aborts the scan.
+- `run_scan(with_narrative=True)` is the dashboard's one-call form.
+
+### Extensibility
+
+- **New source**: implement `NewsSource`, add to `NarrativeScorer(sources=
+  [...])` (or `default_sources()` to make it the global default).
+- **LLM sentiment**: implement `Sentiment`, pass via
+  `NarrativeScorer(sentiment=...)`. Polygon's per-article insights are
+  already an "external" pass-through example.
+- **Different blend**: pass `narrative_weight` to `Scanner` /
+  `run_scan`, or use `blend_composite()` directly with custom weights.
+
 ## Conventions
 
 - Type hints everywhere; dataclasses for structured returns.

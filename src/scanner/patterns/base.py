@@ -14,9 +14,12 @@ worth a look, below 50 should rarely surface.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from src.narrative import NarrativeResult
 
 
 @dataclass(frozen=True)
@@ -46,7 +49,7 @@ class MatchResult:
 
     symbol: str
     pattern: str
-    score: float                       # 0-100, higher is stronger
+    score: float                       # 0-100, pattern-only signal strength
     as_of: pd.Timestamp                # bar date the detector evaluated
     price: float                       # close on ``as_of``
     sectors: tuple[str, ...] = ()      # populated by orchestrator
@@ -54,13 +57,26 @@ class MatchResult:
     source: str = "unknown"            # "polygon" | "yfinance" | "unknown"
     indicators: dict[str, float] = field(default_factory=dict)
     factors: tuple[Factor, ...] = ()
+    # --- Narrative overlay, attached by Scanner when a scorer is configured.
+    narrative: "NarrativeResult | None" = None
+    composite_score: float | None = None  # blended pattern + narrative
+
+    @property
+    def effective_score(self) -> float:
+        """Composite if available, otherwise raw pattern score.
+
+        Use this for ranking — it lets ranking logic stay agnostic about
+        whether narrative scoring was enabled for the run.
+        """
+        return self.composite_score if self.composite_score is not None else self.score
 
     def to_row(self) -> dict[str, object]:
         """Flat row suitable for a DataFrame / table view."""
-        return {
+        row: dict[str, object] = {
             "symbol": self.symbol,
             "pattern": self.pattern,
             "score": round(self.score, 1),
+            "composite_score": round(self.effective_score, 1),
             "as_of": self.as_of,
             "price": round(self.price, 2),
             "sectors": ", ".join(self.sectors),
@@ -71,6 +87,16 @@ class MatchResult:
             "drawdown_120_pct": _pct(self.indicators.get("drawdown_120")),
             "source": self.source,
         }
+        if self.narrative is not None:
+            row.update(self.narrative.to_row())
+        else:
+            row.update({
+                "narrative_score": None,
+                "narrative_items": 0,
+                "narrative_sources": "",
+                "narrative_explanation": "",
+            })
+        return row
 
 
 class Detector(Protocol):
