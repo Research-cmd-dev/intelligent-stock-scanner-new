@@ -34,8 +34,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     log.info(
-        "running backtest: %d symbols, %s → %s, min_score=%g, hold_days=%d",
+        "running backtest: %d symbols, %s → %s, min_score=%g, hold_days=%d, features=%s",
         len(symbols), args.start, args.end, args.min_score, args.hold_days,
+        args.evaluate_features,
     )
     report = run_backtest(
         symbols,
@@ -44,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
         min_score=args.min_score,
         hold_days=args.hold_days,
         cooldown_days=args.cooldown_days,
+        evaluate_features=args.evaluate_features,
+        feature_horizon=args.feature_horizon,
     )
     run_path, suggestions = write_report(report)
 
@@ -57,6 +60,13 @@ def main(argv: list[str] | None = None) -> int:
               f"profit factor: {m.profit_factor:.2f}")
         print(f"  max drawdown: {m.max_drawdown:.2%}   "
               f"sharpe-like: {m.sharpe_like:.2f}")
+    fe = report.features_evaluation
+    if fe is not None and fe.stats:
+        print(f"\nTop features by |IR| (horizon={fe.forward_horizon}d):")
+        for s in fe.stats[:5]:
+            print(f"  {s.name:<22} IR={s.ir:+.2f}  IC={s.mean_ic:+.4f}  "
+                  f"n={s.n_periods}  ({s.category})")
+
     if suggestions:
         print(f"\n{len(suggestions)} suggestion(s):")
         for s in suggestions:
@@ -94,6 +104,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                    help="Forward-holding window in trading days (default 20).")
     p.add_argument("--cooldown-days", type=int, default=0,
                    help="Skip re-entries on the same (symbol, pattern) for N days.")
+
+    p.add_argument("--evaluate-features", action="store_true",
+                   help="Also run feature engineering + IC evaluation "
+                        "(Alpha158-lite + custom + sector-relative).")
+    p.add_argument("--feature-horizon", type=int, default=5,
+                   help="Forward-return horizon (bars) for feature IC "
+                        "(default 5).")
 
     return p.parse_args(argv)
 

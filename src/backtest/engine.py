@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -35,6 +36,9 @@ from .metrics import (
     daily_returns_from_trades,
 )
 from .signals import WARMUP_DAYS, BacktestSignal, generate_signals
+
+if TYPE_CHECKING:
+    from src.features import FeatureEvaluation
 
 log = get_logger(__name__)
 
@@ -80,6 +84,7 @@ class BacktestReport:
     by_score_band: dict[str, Metrics]
     by_narrative_band: dict[str, Metrics] = field(default_factory=dict)
     qlib_metrics: dict[str, float] | None = None
+    features_evaluation: "FeatureEvaluation | None" = None
     params: dict[str, object] = field(default_factory=dict)
 
 
@@ -96,6 +101,8 @@ def run_backtest(
     min_score: float = 60.0,
     hold_days: int = DEFAULT_HOLD_DAYS,
     cooldown_days: int = 0,
+    evaluate_features: bool = False,
+    feature_horizon: int = 5,
 ) -> BacktestReport:
     """End-to-end backtest. One call from a CLI or notebook.
 
@@ -111,18 +118,33 @@ def run_backtest(
             for this many bars after entry. ``0`` disables the cooldown,
             but multiple overlapping entries on the same symbol/pattern
             usually just inflate counts without changing conclusions.
+        evaluate_features: When True, also run the feature-evaluation
+            pipeline (Alpha158-lite + custom + sector-relative) over the
+            same universe and window, computing per-feature IC. The
+            result is attached to ``BacktestReport.features_evaluation``
+            and surfaces in the markdown report.
+        feature_horizon: Forward-return horizon (bars) used for the
+            feature IC. Ignored when ``evaluate_features`` is False.
 
     Returns:
-        A :class:`BacktestReport` with trades, metrics, and breakdowns.
+        A :class:`BacktestReport` with trades, metrics, breakdowns, and
+        an optional feature evaluation.
     """
     signals = generate_signals(symbols, start=start, end=end, min_score=min_score)
+
+    features_evaluation = None
+    if evaluate_features:
+        features_evaluation = _build_features(symbols, start, end, feature_horizon)
+
     if not signals:
         log.info("backtest produced no signals")
         return BacktestReport(
             signals=[], trades=[],
             metrics=compute_metrics([]),
             by_pattern={}, by_sector={}, by_score_band={},
-            params=_params(start, end, min_score, hold_days, cooldown_days, len(symbols)),
+            features_evaluation=features_evaluation,
+            params=_params(start, end, min_score, hold_days, cooldown_days,
+                           len(symbols), evaluate_features, feature_horizon),
         )
 
     frames = _refetch_frames(signals, start, end)
@@ -144,8 +166,26 @@ def run_backtest(
         by_sector=breakdown_by(trades, "sector"),
         by_score_band=breakdown_by_score_band(trades),
         qlib_metrics=qlib_metrics,
-        params=_params(start, end, min_score, hold_days, cooldown_days, len(symbols)),
+        features_evaluation=features_evaluation,
+        params=_params(start, end, min_score, hold_days, cooldown_days,
+                       len(symbols), evaluate_features, feature_horizon),
     )
+
+
+def _build_features(symbols, start, end, horizon):
+    """Local import so the optional feature stack stays optional."""
+    try:
+        from src.features import build_feature_evaluation
+    except Exception as exc:  # pragma: no cover - import error path
+        log.warning("feature evaluation skipped (import failed): %s", exc)
+        return None
+    try:
+        return build_feature_evaluation(
+            symbols, start=start, end=end, forward_horizon=horizon,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("feature evaluation failed: %s", exc)
+        return None
 
 
 # ---------------------------------------------------------------------- #
@@ -256,9 +296,10 @@ def _refetch_frames(
 
 
 def _params(
-    start, end, min_score, hold_days, cooldown_days, symbol_count
+    start, end, min_score, hold_days, cooldown_days, symbol_count,
+    evaluate_features=False, feature_horizon=5,
 ) -> dict[str, object]:
-    return {
+    out: dict[str, object] = {
         "start": str(pd.Timestamp(start).date()),
         "end": str(pd.Timestamp(end).date()),
         "min_score": min_score,
@@ -266,3 +307,7 @@ def _params(
         "cooldown_days": cooldown_days,
         "symbol_count": symbol_count,
     }
+    if evaluate_features:
+        out["evaluate_features"] = True
+        out["feature_horizon"] = feature_horizon
+    return out

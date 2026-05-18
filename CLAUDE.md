@@ -269,6 +269,102 @@ artifacts under the resolved logs directory.
 4. Add a canned-trades test in `tests/test_backtest.py` that proves it
    *fires* in the targeted scenario and *stays quiet* on a clean run.
 
+## Feature engineering layer
+
+Lives in `src/features/`. Optional, opt-in from the backtest CLI via
+`--evaluate-features`. Public entry: `build_feature_evaluation(symbols,
+*, start, end, forward_horizon=5)` returns a `FeatureEvaluation`
+attached to `BacktestReport.features_evaluation`.
+
+### Three feature families
+
+- **`alpha158.py` — Alpha158-lite (pandas):** ~21 features tracking
+  Qlib's Alpha158 naming convention so a future swap to the real
+  handler is column-compatible. Includes K-line shape (`KMID, KLEN,
+  KUP, KLOW, KMID2, KSFT`), rate-of-change (`ROC5/10/20/60`),
+  moving-average distance (`MA5/20/60`), volatility (`STD5/20`),
+  trend (`BETA20`), volume (`VMA5/20`), position-of-extreme
+  (`IMAX5, IMIN5`), and rolling-high distance (`QTLU20`).
+  Computed from a single symbol's OHLCV — no Qlib runtime required.
+- **`alpha158.try_qlib_alpha158()` — real Qlib pass-through:**
+  attempts `qlib.contrib.data.handler.Alpha158`. Requires (1)
+  `pyqlib` importable and (2) a populated Qlib bin-data directory
+  (`~/.qlib/qlib_data/{us_data,cn_data}` by default, or pass
+  `provider_uri=`). Returns `None` on any failure — callers fall
+  back to the pandas features above.
+- **`custom.py` — scanner / narrative / sector features:**
+  - *Scanner-derived*: `RSI14_Z60`, `DIST_SMA50_Z60`,
+    `DIST_SMA200_Z60`, `DRAWDOWN_120`, `DRAWDOWN_120_Z60`,
+    `PULLBACK_DEPTH`, `TREND_REGIME`. Built from the
+    `add_indicators` columns so detector and feature inputs stay in
+    sync.
+  - *Sector-relative*: `SECTOR_RELATIVE_5D / _20D` — symbol return
+    minus the sector cohort's median return. Captures "leading the
+    group" vs "lagging the group."
+  - *Narrative*: `NARRATIVE_SCORE` — the live 0..1 score broadcast
+    onto the most recent bar per symbol. yfinance has no historical
+    news backfill so this column is mostly NaN by design; the
+    evaluator simply drops NaN rows, so missing narrative never
+    breaks the run.
+
+### Evaluation (IC / IR)
+
+`evaluator.evaluate_features(panel, close_panel, forward_horizon=5)`:
+
+- For each in-window date, computes the Spearman rank correlation
+  between feature value and forward N-day return across the
+  cross-section. Dates with fewer than `MIN_SYMBOLS_PER_DATE`
+  observations are skipped.
+- Aggregates per-feature: `mean_ic`, `std_ic`, `ir = mean/std`,
+  `t_stat = mean / (std/√N)`, `n_periods`, `n_observations`.
+- Features with fewer than `MIN_OBSERVATIONS` non-null pairs are
+  dropped entirely so a sparse signal can't produce a misleading IR.
+- Result is sorted by `|IR|` descending — the dashboard / report just
+  shows the head.
+
+Rule of thumb: `|IR| > 1.0` is a real signal worth investigating;
+`|IR| < 0.3` is noise. These thresholds (`STRONG_IR`, `WEAK_IR`) are
+in `src/backtest/refine.py`.
+
+### Refinement heuristics on features
+
+`refine._feature_ic_checks` adds two new rules to the suggestions log:
+
+- **Promote**: a feature with `|IR| ≥ STRONG_IR` that *isn't already
+  a scanner input* is flagged as a candidate for a new pattern or as
+  an additional factor in an existing detector. Cap of 3 promotions
+  per run so the journal stays focused.
+- **Deprecate**: a feature that *is* already a scanner input
+  (matched substring against `_SCANNER_INPUTS`) but reports
+  `|IR| < WEAK_IR` is flagged as overweighted — consider lowering
+  its component weight or moving it from a gate to a soft signal.
+
+### Running with features
+
+```bash
+python -m src.backtest.run --evaluate-features --symbols NVDA,PLTR,AMD,AVGO --start 2024-01-01
+python -m src.backtest.run --evaluate-features --sector AI Chips --start 2024-01-01
+python -m src.backtest.run --evaluate-features --feature-horizon 10 --start 2024-01-01
+```
+
+The CLI prints the top five features by `|IR|` after the metrics
+summary, and the per-run markdown report includes a full feature
+table. Suggestions land in `logs/suggestions.md` alongside the
+pattern-level ones.
+
+### Adding a new feature
+
+1. If it's a single-symbol indicator: add the column in
+   `compute_alpha158_lite` (for Alpha158-style) or
+   `compute_per_symbol` (for scanner-derived); register the name in
+   the module's `*_FEATURES` tuple.
+2. If it needs a cross-section: add a function in `custom.py` that
+   takes the long-form panel + wide close panel and returns the
+   joined panel — follow `add_sector_relative` as a template.
+3. Tag its category in `pipeline._category_map`.
+4. Add a test that exercises the feature on synthetic data with a
+   known signal direction.
+
 ## Conventions
 
 - Type hints everywhere; dataclasses for structured returns.

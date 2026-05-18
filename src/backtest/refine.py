@@ -72,6 +72,13 @@ SCORE_BAND_RETURN_BPS = 100.0    # 1 percentage point of mean return
 # Backtest-wide health checks.
 MIN_TOTAL_TRADES_FOR_CONFIDENCE = 20
 
+# Feature evaluation thresholds. An IR magnitude above this is a clear
+# signal worth promoting; below the lower bound is a candidate for
+# deprecation if we're using it.
+STRONG_IR = 1.0
+WEAK_IR = 0.3
+FEATURE_MIN_PERIODS = 20
+
 
 # ---------------------------------------------------------------------- #
 # Public entry                                                           #
@@ -89,6 +96,9 @@ def suggest_improvements(report: "BacktestReport") -> list[Suggestion]:
         suggestions.extend(_score_band_check(report))
         suggestions.extend(_sector_bias_check(report))
         suggestions.extend(_overall_health_check(report))
+
+    if report.features_evaluation is not None:
+        suggestions.extend(_feature_ic_checks(report))
 
     return _rank(suggestions)
 
@@ -296,6 +306,81 @@ def _overall_health_check(report: "BacktestReport") -> list[Suggestion]:
 # ---------------------------------------------------------------------- #
 # Ordering                                                               #
 # ---------------------------------------------------------------------- #
+
+
+# Features the current scanner already consumes — surfacing these in
+# the IC report is informational; we don't propose "promoting" what we
+# already use. Match by case-insensitive substring on the feature name.
+_SCANNER_INPUTS = ("rsi14", "dist_sma50", "dist_sma200", "drawdown_120")
+
+
+def _feature_ic_checks(report: "BacktestReport") -> list[Suggestion]:
+    """Surface the strongest features that aren't already in detectors."""
+    fe = report.features_evaluation
+    if fe is None or not fe.stats:
+        return []
+
+    out: list[Suggestion] = []
+    promoted = 0
+    weak_called_out = 0
+
+    for stat in fe.stats:
+        if stat.n_periods < FEATURE_MIN_PERIODS:
+            continue
+        name_l = stat.name.lower()
+        already_used = any(tag in name_l for tag in _SCANNER_INPUTS)
+
+        if stat.abs_ir >= STRONG_IR and promoted < 3 and not already_used:
+            direction = "positive" if stat.ir > 0 else "negative"
+            out.append(Suggestion(
+                category="feature",
+                priority="high" if stat.abs_ir >= 1.5 else "medium",
+                title=(
+                    f"Feature '{stat.name}' has {direction} IR={stat.ir:+.2f} "
+                    f"({stat.category}). Consider promoting."
+                ),
+                rationale=(
+                    f"Mean IC {stat.mean_ic:+.3f} over {stat.n_periods} periods, "
+                    f"t-stat {stat.t_stat:+.2f}. A {direction} information ratio "
+                    "at this magnitude is strong enough to encode as a gate or "
+                    f"factor in a new detector — or to weight into the existing "
+                    f"{stat.category}-derived scoring."
+                ),
+                evidence={
+                    "feature": stat.name,
+                    "category": stat.category,
+                    "mean_ic": round(stat.mean_ic, 4),
+                    "ir": round(stat.ir, 3),
+                    "n_periods": stat.n_periods,
+                    "n_obs": stat.n_observations,
+                },
+            ))
+            promoted += 1
+
+        if already_used and stat.abs_ir < WEAK_IR and weak_called_out < 2:
+            out.append(Suggestion(
+                category="feature",
+                priority="low",
+                title=(
+                    f"Scanner input '{stat.name}' has weak IR={stat.ir:+.2f}; "
+                    "review its weight."
+                ),
+                rationale=(
+                    f"Mean IC {stat.mean_ic:+.3f} over {stat.n_periods} periods "
+                    "is barely distinguishable from noise. The current detector "
+                    "may be over-weighting this factor — consider lowering its "
+                    "component weight or moving it from a gate to a soft signal."
+                ),
+                evidence={
+                    "feature": stat.name,
+                    "mean_ic": round(stat.mean_ic, 4),
+                    "ir": round(stat.ir, 3),
+                    "n_periods": stat.n_periods,
+                },
+            ))
+            weak_called_out += 1
+
+    return out
 
 
 _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}

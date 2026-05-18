@@ -108,6 +108,10 @@ def _render_run_report(
         lines.append(_metrics_table(report.by_sector))
         lines.append("")
 
+    if report.features_evaluation is not None:
+        lines.append(_render_features(report.features_evaluation))
+        lines.append("")
+
     lines.append("## Suggestions")
     lines.append("")
     if not suggestions:
@@ -118,6 +122,39 @@ def _render_run_report(
     lines.append("")
 
     return "\n".join(lines)
+
+
+def _render_features(fe) -> str:
+    """Render the feature-evaluation block."""
+    if not fe.stats:
+        return (
+            "## Feature evaluation\n\n"
+            "_No usable features evaluated — the universe likely produced "
+            "too few cross-sectional observations._"
+        )
+
+    headers = ["Feature", "Category", "Mean IC", "IR", "t-stat", "N periods", "N obs"]
+    rows = [
+        "| " + " | ".join(headers) + " |",
+        "|" + "|".join(["---"] * len(headers)) + "|",
+    ]
+    for s in fe.stats[:25]:  # cap at 25 so the report stays readable
+        rows.append("| " + " | ".join([
+            s.name,
+            s.category,
+            f"{s.mean_ic:+.4f}",
+            f"{s.ir:+.2f}",
+            f"{s.t_stat:+.2f}",
+            str(s.n_periods),
+            str(s.n_observations),
+        ]) + " |")
+
+    return (
+        f"## Feature evaluation\n\n"
+        f"_Cross-sectional Spearman IC vs. {fe.forward_horizon}-day forward return. "
+        f"Top features by absolute IR shown first._\n\n"
+        + "\n".join(rows)
+    )
 
 
 def _kv_table(d: dict[str, object]) -> str:
