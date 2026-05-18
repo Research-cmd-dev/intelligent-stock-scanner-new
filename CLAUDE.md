@@ -204,6 +204,71 @@ clearly bullish or bearish news re-ranks similar-quality patterns.
 - **Different blend**: pass `narrative_weight` to `Scanner` /
   `run_scan`, or use `blend_composite()` directly with custom weights.
 
+## Backtest + self-refinement layer
+
+Lives in `src/backtest/`. Closes the loop between live scanning and
+historical performance. One public entry: `run_backtest(symbols, *,
+start, end, ...)` returns a `BacktestReport`; `write_report(report)`
+renders Markdown to disk.
+
+### Pipeline
+
+1. **`signals.generate_signals`** — replays the scanner bar-by-bar
+   across history. For each symbol we fetch the full OHLCV once (cache
+   hit), enrich with indicators once, then slice the enriched frame at
+   each in-window bar and call `Scanner.scan_frame(slice_, symbol)`.
+   This reuses the exact detector code the dashboard runs — no
+   second implementation to drift.
+2. **`engine.simulate_trades`** — buy next bar's open, hold N trading
+   days, sell close. A `(symbol, pattern)` cooldown skips re-entries
+   for a configurable number of days. Signals on the last available
+   bar (no forward entry) are dropped; signals whose window extends
+   past `end` are held to the last available bar and marked
+   `truncated=True` so the metrics layer can audit them.
+3. **`metrics.compute_metrics`** — win rate, mean / median return,
+   profit factor, max drawdown of the cumulative-sum equity curve,
+   `sharpe_like = mean/std × √N`, plus `breakdown_by(trades, "pattern"
+   | "sector")` and `breakdown_by_score_band(trades)`. Sector
+   breakdowns fan multi-sector signals into every group they touch.
+4. **`metrics.compute_qlib_metrics`** — `risk_analysis` from
+   `qlib.contrib.evaluate` when `qlib` is importable; otherwise
+   `None`. Qlib is an *enhancement*, not a hard dep — the system
+   produces the same `BacktestReport` either way. `pip install pyqlib`
+   to enable annualized risk metrics.
+5. **`refine.suggest_improvements`** — deterministic heuristics over
+   the breakdowns. No LLM, no ML. Each rule has a coverage gate
+   (`MIN_BUCKET_TRADES`, `MIN_TOTAL_TRADES_FOR_CONFIDENCE`) so a thin
+   sample produces *no* suggestions rather than noisy ones. Rules:
+   pattern win-rate gap, low-vs-high score band performance, sector
+   bias against baseline, negative mean return, profit factor < 1.
+6. **`report.write_report`** — one Markdown per run at
+   `logs/backtest_{YYYYMMDD_HHMMSS}.md` (parameters, overall metrics,
+   Qlib block when available, breakdowns, suggestions) plus a dated
+   block appended to `logs/suggestions.md` — the append-only journal
+   the human reviewer reads.
+
+### CLI
+
+```
+python -m src.backtest.run --symbols NVDA,PLTR --start 2024-01-01
+python -m src.backtest.run --sector AI Chips --start 2024-01-01
+python -m src.backtest.run --start 2024-01-01            # full universe
+```
+
+Defaults: `--min-score 60`, `--hold-days 20`, `--cooldown-days 0`. The
+CLI prints a one-line summary (signals, trades, win rate, profit
+factor, drawdown) plus every suggestion title, and writes both
+artifacts under the resolved logs directory.
+
+### Adding a new heuristic
+
+1. Write a `_check_*(report) -> list[Suggestion]` in `refine.py`.
+2. Gate it on `MIN_BUCKET_TRADES` for any bucket reads, and on
+   `MIN_TOTAL_TRADES_FOR_CONFIDENCE` if it depends on stable aggregates.
+3. Register it in `suggest_improvements`.
+4. Add a canned-trades test in `tests/test_backtest.py` that proves it
+   *fires* in the targeted scenario and *stays quiet* on a clean run.
+
 ## Conventions
 
 - Type hints everywhere; dataclasses for structured returns.
