@@ -20,6 +20,7 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from src.narrative import NarrativeResult
+    from src.research import ResearchResult
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,10 @@ class MatchResult:
     # --- Narrative overlay, attached by Scanner when a scorer is configured.
     narrative: "NarrativeResult | None" = None
     composite_score: float | None = None  # blended pattern + narrative
+    # --- Deep-research overlay, attached by Scanner for high-conviction matches
+    # only (composite_score >= DEFAULT_CONVICTION_THRESHOLD, capped at
+    # research_limit unique symbols per scan). Stays None for everything else.
+    research: "ResearchResult | None" = None
 
     @property
     def effective_score(self) -> float:
@@ -95,6 +100,13 @@ class MatchResult:
                 "narrative_items": 0,
                 "narrative_sources": "",
                 "narrative_explanation": "",
+            })
+        if self.research is not None:
+            row.update(self.research.to_row())
+        else:
+            row.update({
+                "research_summary": "",
+                "research_confidence": None,
             })
         return row
 

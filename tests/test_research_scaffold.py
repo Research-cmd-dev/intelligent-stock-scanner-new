@@ -70,6 +70,35 @@ def test_top_candidates_empty_pool_returns_empty_list() -> None:
     assert top_candidates(matches) == []
 
 
+def test_top_candidates_unique_by_keeps_highest_per_key() -> None:
+    # A single ticker hitting multiple patterns must only consume one
+    # research slot. Dedup keeps the highest-scoring entry per symbol.
+    matches = [
+        _FakeMatch("A", 80.0),
+        _FakeMatch("B", 75.0),
+        _FakeMatch("A", 90.0),  # higher-scoring A — should win the slot
+        _FakeMatch("C", 72.0),
+        _FakeMatch("B", 78.0),  # higher-scoring B
+    ]
+    picks = top_candidates(matches, limit=3, unique_by="symbol")
+    assert [(m.symbol, m.effective_score) for m in picks] == [
+        ("A", 90.0), ("B", 78.0), ("C", 72.0),
+    ]
+
+
+def test_top_candidates_unique_by_caps_at_limit_not_match_count() -> None:
+    # 4 unique symbols above threshold but limit=2 — exactly 2 returned.
+    matches = [
+        _FakeMatch("A", 90.0),
+        _FakeMatch("A", 88.0),  # duplicate, dropped
+        _FakeMatch("B", 85.0),
+        _FakeMatch("C", 80.0),
+        _FakeMatch("D", 75.0),
+    ]
+    picks = top_candidates(matches, limit=2, unique_by="symbol")
+    assert [m.symbol for m in picks] == ["A", "B"]
+
+
 def test_research_result_to_row_exposes_all_slots() -> None:
     res = ResearchResult(
         ticker="PLTR",

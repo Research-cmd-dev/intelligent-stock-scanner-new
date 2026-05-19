@@ -124,14 +124,31 @@ def top_candidates(
     *,
     threshold: float = DEFAULT_CONVICTION_THRESHOLD,
     limit: int = 5,
+    unique_by: str | None = None,
 ) -> list[object]:
     """Pick the top matches worth spending research on.
 
-    Selection rule: filter by ``effective_score >= threshold``, then
-    take the highest ``limit`` by ``effective_score``. Caps the per-run
-    cost of research calls even on a wildly bullish day. Accepts any
-    object exposing ``effective_score`` (today: ``MatchResult``).
+    Selection rule: filter by ``effective_score >= threshold``, sort by
+    ``effective_score`` descending, optionally dedup by an attribute,
+    then take the first ``limit``. Caps the per-run cost of research
+    calls even on a wildly bullish day. Accepts any object exposing
+    ``effective_score`` (today: ``MatchResult``).
+
+    ``unique_by`` keeps the highest-scoring entry per distinct value of
+    that attribute. The scanner uses ``unique_by="symbol"`` so a name
+    that hits two patterns at once (e.g. NVDA on both Trend Rider and
+    Bottom Hunter) consumes exactly one research slot, not two.
     """
     pool = [m for m in matches if getattr(m, "effective_score", 0.0) >= threshold]
     pool.sort(key=lambda m: getattr(m, "effective_score", 0.0), reverse=True)
+    if unique_by is not None:
+        seen: set[object] = set()
+        deduped: list[object] = []
+        for m in pool:
+            key = getattr(m, unique_by, None)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(m)
+        pool = deduped
     return pool[: max(0, int(limit))]

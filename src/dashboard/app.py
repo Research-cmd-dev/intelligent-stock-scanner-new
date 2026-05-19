@@ -449,6 +449,56 @@ def render_detail(report: ScanReport, params: ScanParams) -> None:
                     else:
                         st.markdown(f"- {item.title} — _{publisher}, {when}_")
 
+        _render_research_section(m)
+
+
+def _render_research_section(m: MatchResult) -> None:
+    """Deep-research read for high-conviction matches.
+
+    Renders only when a research payload exists. Collapsed by default so
+    the dashboard's idea-generation view stays tight — research is the
+    *secondary* validation layer, not the primary surface.
+    """
+    research = m.research
+    if research is None:
+        return
+    # Researcher fail-soft path returns confidence=0 + empty fields.
+    # Don't show an empty expander — surface a small caption instead.
+    has_content = bool(
+        research.summary or research.company_quality or research.management
+        or research.partnerships or research.financial_health or research.key_risks
+    )
+    if not has_content:
+        st.caption("🔬 Deep research attempted but returned no content (low confidence).")
+        return
+
+    with st.expander("🔬 Deep research (fundamental read)", expanded=False):
+        st.progress(
+            min(max(research.confidence, 0.0), 1.0),
+            text=f"Researcher confidence: {research.confidence:.2f}",
+        )
+        if research.summary:
+            st.markdown(f"**Summary** — {research.summary}")
+
+        sections = [
+            ("Company quality", research.company_quality),
+            ("Management", research.management),
+            ("Partnerships", research.partnerships),
+            ("Financial health", research.financial_health),
+            ("Key risks", research.key_risks),
+        ]
+        for label, body in sections:
+            if not body:
+                continue
+            st.markdown(f"**{label}**")
+            st.write(body)
+
+        if research.sources:
+            st.caption(
+                f"Grounded in {len(research.sources)} headline"
+                f"{'s' if len(research.sources) != 1 else ''} from the narrative basket."
+            )
+
 
 def render_diagnostics(report: ScanReport) -> None:
     if not report.errors:

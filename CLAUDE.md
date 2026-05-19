@@ -551,27 +551,74 @@ Requires `anthropic` (now in `requirements.txt`) and
 succeeds and the first `.research()` call returns an empty result
 with `confidence=0.0` — same contract as a network failure.
 
-### Planned integration (not wired yet)
+### Wired integration (current behavior)
 
-When the first real researcher lands, integration is intended to
-mirror how the narrative layer plugs into `Scanner`:
+The research layer is now wired through `Scanner` and the dashboard.
+It stays strictly *opt-in*: with no researcher configured, the scanner
+is byte-identical to before — `match.research` is always `None` and
+zero LLM calls happen.
 
-1. `Scanner.__init__(..., researcher: Researcher | None = None,
-   research_limit: int = 5)`.
-2. After the narrative pass (so `effective_score` reflects the
-   composite), the orchestrator calls
-   `top_candidates(matches, limit=research_limit)` and runs
-   `researcher.research(sym)` once per *unique* high-conviction
-   symbol — same one-fetch-per-symbol rule the narrative pass uses.
-3. `MatchResult` gains a nullable `research: ResearchResult | None`
-   field. Ranking continues to use `effective_score`; the research
-   payload is rendered in the dashboard's per-match expander.
-4. A research failure on one symbol logs a warning and leaves that
-   match's prior state intact — never aborts the scan.
+- `MatchResult` carries a nullable `research: ResearchResult | None`
+  field alongside `narrative`. `to_row()` exposes `research_summary`
+  and `research_confidence` columns (empty defaults when no research).
+- `Scanner(researcher=..., research_limit=5)` wires the layer. The
+  enrichment runs *after* the narrative pass and after the
+  `min_score` filter + sort — so research operates on the final
+  ranked list and never re-orders it.
+- Selection uses `top_candidates(matches, threshold=
+  DEFAULT_CONVICTION_THRESHOLD, limit=research_limit,
+  unique_by="symbol")`. A symbol that hits two patterns at once
+  (NVDA on Trend Rider + Bottom Hunter) consumes exactly **one**
+  research slot; the resulting `ResearchResult` is attached to both
+  of that symbol's matches.
+- One `researcher.research(symbol)` call per unique high-conviction
+  symbol. Same one-fetch-per-symbol economics as the narrative pass.
+- A researcher failure on any one symbol is logged and skipped —
+  that symbol's matches keep `research=None` and the rest of the
+  scan completes normally. Honors the same convention narrative +
+  qlib follow.
+- The dashboard's per-match detail expander renders a collapsible
+  "🔬 Deep research (fundamental read)" subsection when a research
+  payload is present: confidence progress bar, summary, then
+  `company_quality`, `management`, `partnerships`, `financial_health`,
+  `key_risks`. A researcher fail-soft (empty payload, confidence 0)
+  shows a one-line caption instead of an empty expander.
 
-This stays *opt-in*: the scanner remains fast and pattern + narrative
-remain the primary signal. Research only adds depth on the few names
-already worth attention.
+#### Wiring it on
+
+```python
+from src.scanner import Scanner
+from src.narrative import NarrativeScorer
+from src.research import LLMResearcher
+
+scanner = Scanner(
+    narrative_scorer=NarrativeScorer(),
+    researcher=LLMResearcher(),     # opt-in; needs ANTHROPIC_API_KEY
+    research_limit=5,
+)
+report = scanner.scan_discovery(sectors=["AI", "Chips"])
+```
+
+#### Cost shape
+
+Per scan, at most `research_limit` Claude API calls — one per unique
+high-conviction symbol. With Sonnet 4.6 + prompt caching, five
+research calls cost cents, not dollars. The discovery sweep itself
+(fetch + indicators + detectors + narrative) is unchanged and
+remains the fast primary engine.
+
+#### Tuning knobs
+
+- `research_limit=N` — raise for broader coverage on bullish days,
+  lower (or set to `0`-equivalent by passing `researcher=None`) to
+  disable.
+- The conviction floor `DEFAULT_CONVICTION_THRESHOLD = 70.0` is the
+  single gate in `src/research/base.py`. To research a wider band
+  (e.g. include 65+ when a strong catalyst is present), change it
+  there rather than scattering thresholds across the scanner.
+- To swap the research backend (e.g. analyst notes, a different
+  LLM), implement the `Researcher` protocol and pass the instance
+  to `Scanner(researcher=...)` — no other call sites change.
 
 ### Adding a real researcher
 

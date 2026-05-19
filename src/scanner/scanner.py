@@ -33,6 +33,7 @@ from .universe import build_universe, classify
 
 if TYPE_CHECKING:
     from src.narrative import NarrativeScorer
+    from src.research import Researcher
 
 log = get_logger(__name__)
 
@@ -72,6 +73,8 @@ class Scanner:
         lookback_days: int = 300,
         narrative_scorer: "NarrativeScorer | None" = None,
         narrative_weight: float | None = None,
+        researcher: "Researcher | None" = None,
+        research_limit: int = 5,
     ) -> None:
         """
         Args:
@@ -90,12 +93,27 @@ class Scanner:
             narrative_weight: Override the narrative weight in the blend
                 (default ``DEFAULT_NARRATIVE_WEIGHT`` from the narrative
                 module — 0.20, i.e. 80% pattern / 20% narrative).
+            researcher: Optional :class:`src.research.Researcher`. When
+                provided, the scanner runs deep research on the top
+                high-conviction matches (composite_score ≥
+                ``DEFAULT_CONVICTION_THRESHOLD``) after the narrative
+                pass, capped at ``research_limit`` *unique symbols*. A
+                symbol that hits two patterns at once consumes one slot,
+                not two. Research is strictly opt-in: with ``None``,
+                ``match.research`` stays ``None`` and the scanner is
+                byte-identical to before this field existed.
+            research_limit: Maximum unique symbols to research per scan.
+                Defaults to 5 — small enough to keep an interactive
+                dashboard scan cheap, large enough to cover a typical
+                day's high-conviction list.
         """
         self.detectors = detectors if detectors is not None else ALL_DETECTORS
         self.min_score = min_score
         self.lookback_days = lookback_days
         self.narrative_scorer = narrative_scorer
         self.narrative_weight = narrative_weight
+        self.researcher = researcher
+        self.research_limit = research_limit
 
     # ------------------------------------------------------------------ #
     # Public entry points                                                #
@@ -171,6 +189,13 @@ class Scanner:
 
         matches = [m for m in matches if m.effective_score >= self.min_score]
         matches.sort(key=lambda m: m.effective_score, reverse=True)
+
+        # Deep research pass — runs last, only on the already-ranked top
+        # of the list, only when a researcher is wired. Operates on the
+        # final composite score so research fires exactly where the
+        # ranking says it should.
+        if self.researcher is not None and matches:
+            matches = self._enrich_with_research(matches)
 
         coverage = {
             "universe": len(symbols),
@@ -251,6 +276,56 @@ class Scanner:
             else:
                 composite = blend_composite(m.score, narr, narrative_weight=weight)
             out.append(replace(m, narrative=narr, composite_score=composite))
+        return out
+
+    def _enrich_with_research(
+        self, matches: list[MatchResult]
+    ) -> list[MatchResult]:
+        """Attach a :class:`ResearchResult` to each top high-conviction match.
+
+        Selection: ``top_candidates(matches, unique_by="symbol", limit=
+        research_limit)`` — filter by ``DEFAULT_CONVICTION_THRESHOLD``,
+        keep the highest-scoring entry per symbol, take the top N. We
+        call ``researcher.research()`` exactly once per unique symbol;
+        if that symbol has multiple pattern hits in the list, every one
+        of those matches receives the same research payload.
+
+        A researcher failure on one symbol logs a warning and leaves
+        that symbol's matches untouched (``research`` stays ``None``);
+        it never aborts a scan. This honors the same convention the
+        narrative and qlib layers follow.
+
+        Returns the matches in their input order — research enrichment
+        never changes ranking, since ``effective_score`` is unaffected.
+        """
+        # Local import so the scanner package stays importable without
+        # the research package installed — mirrors the narrative import.
+        from src.research import top_candidates
+
+        researcher = self.researcher
+        assert researcher is not None  # narrowed by caller
+
+        candidates = top_candidates(
+            matches, limit=self.research_limit, unique_by="symbol"
+        )
+        target_symbols = [m.symbol for m in candidates]
+        if not target_symbols:
+            return matches
+
+        researched: dict[str, object] = {}
+        for sym in target_symbols:
+            try:
+                researched[sym] = researcher.research(sym)
+            except Exception as exc:
+                log.warning("research failed for %s: %s", sym, exc)
+
+        out: list[MatchResult] = []
+        for m in matches:
+            payload = researched.get(m.symbol)
+            if payload is None:
+                out.append(m)
+                continue
+            out.append(replace(m, research=payload))
         return out
 
 
