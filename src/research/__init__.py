@@ -22,9 +22,19 @@ from .base import (
     should_research,
     top_candidates,
 )
+from .llm_researcher import (
+    DEFAULT_MAX_HEADLINES,
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_MODEL,
+    LLMResearcher,
+)
 
 __all__ = [
     "DEFAULT_CONVICTION_THRESHOLD",
+    "DEFAULT_MAX_HEADLINES",
+    "DEFAULT_MAX_TOKENS",
+    "DEFAULT_MODEL",
+    "LLMResearcher",
     "NullResearcher",
     "ResearchResult",
     "Researcher",

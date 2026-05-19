@@ -494,6 +494,63 @@ helpers centralize the policy:
   by threshold then take the top-N by `effective_score`. Caps the
   per-run cost of research even on a wildly bullish day.
 
+### Current implementation: `LLMResearcher`
+
+The first real `Researcher` ships as `src/research/llm_researcher.py`.
+It is an Anthropic-SDK-backed synthesizer that turns the same news
+basket the narrative scorer collected into a fundamental read on the
+mission's six checklist slots.
+
+- **Model**: `claude-sonnet-4-6` by default (`DEFAULT_MODEL`). Sonnet
+  hits the right speed/quality point for ~5 short structured-extraction
+  calls per scan. Override per-instance — bump to `claude-opus-4-7`
+  when downstream eval shows Sonnet missing nuance on management or
+  risks; drop to `claude-haiku-4-5` only when even Sonnet feels slow.
+- **Prompt caching**: the system prompt (rubric + worked examples +
+  format rules) is marked `cache_control: {"type": "ephemeral"}` and
+  is kept as a module-level constant so the bytes are stable across
+  calls. The per-ticker payload (symbol, headlines, today's date)
+  lives in the *user* turn so the cached prefix is never invalidated.
+  Confirm caching is active by checking `response.usage.
+  cache_read_input_tokens > 0` on the second call of a session.
+- **Structured output**: `output_config.format` with a strict
+  JSON schema mirroring `ResearchResult`. No prompt-engineered "return
+  JSON" hacks, no regex parsing — the API guarantees a parseable
+  response shape.
+- **Headlines source**: defaults to `src.narrative.sources.
+  default_sources()` (Polygon + yfinance) so the researcher and the
+  scorer see the same basket. Pass `sources=[...]` to inject a custom
+  feed or `sources=[]` to disable the fetch entirely (useful for
+  benchmark prompts where the basket should not affect the read).
+- **Failure mode**: any failure — news fetch, API error, malformed
+  JSON, missing fields — is logged and returned as an empty
+  `ResearchResult` with `confidence=0.0`. Honors the same convention
+  the narrative + qlib layers follow: optional layers degrade to a
+  no-op, never abort a scan.
+- **Latency**: `max_tokens=1024`, per-call timeout 30s via
+  `client.with_options(timeout=...)`. No streaming — the six short
+  fields render well under the SDK's non-streaming timeout.
+- **Cost shape**: one API call per *unique* high-conviction symbol
+  per scan. At Sonnet 4.6 prices with prompt caching, a five-symbol
+  scan costs cents, not dollars.
+
+`LLMResearcher` is still **opt-in**. It is wired into the package
+export but not yet into `Scanner` or `MatchResult` — see the planned
+integration plan below. To use it standalone today:
+
+```python
+from src.research import LLMResearcher
+
+r = LLMResearcher()
+result = r.research("NVDA")     # never raises
+print(result.summary, result.key_risks, result.confidence)
+```
+
+Requires `anthropic` (now in `requirements.txt`) and
+`ANTHROPIC_API_KEY` in `.env`. Without the key, the constructor
+succeeds and the first `.research()` call returns an empty result
+with `confidence=0.0` — same contract as a network failure.
+
 ### Planned integration (not wired yet)
 
 When the first real researcher lands, integration is intended to

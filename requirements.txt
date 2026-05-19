@@ -17,5 +17,8 @@ requests>=2.31
 pyarrow>=15.0           # parquet cache backend
 tenacity>=8.2           # retry/backoff on API failures
 
+# --- deep research (optional layer) ---
+anthropic>=0.40         # LLMResearcher backend
+
 # --- dev / test ---
 pytest>=8.0
