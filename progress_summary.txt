@@ -1,0 +1,254 @@
+=== CURRENT PROJECT PROGRESS SUMMARY (Stock Finder Agent) ===
+
+1. What we have built so far:
+   - Full project scaffolding (.devcontainer, requirements.txt, CLAUDE.md, Makefile, .env.example)
+   - src/config/ — sectors universe + settings (env loading)
+   - src/data/ — Polygon + yfinance clients, unified fetcher with on-disk parquet cache
+   - src/utils/ — logging
+   - src/scanner/ — indicators, universe builder, Trend Rider + Bottom Hunter
+     detectors, Scanner class, MatchResult + Factor scoring (committed)
+   - src/narrative/ — full intelligent narrative layer (committed, then enhanced):
+       * sources/  — NewsSource protocol, Polygon + yfinance adapters,
+                     on-disk JSON cache (data/cache/news/), dedup
+       * lexicon.py    — finance-flavored positive/negative word + phrase lists
+       * sentiment.py  — Sentiment protocol + LexiconSentiment
+                         (prefers Polygon's per-article external_sentiment
+                         when present, falls back to lexicon)
+       * scorer.py     — NarrativeScorer.score(ticker) -> NarrativeResult,
+                         recency-weighted aggregation (5-day half-life),
+                         thin-coverage damping, explanation builder,
+                         blend_composite() (80% pattern / 20% narrative default)
+       * themes.py     — NEW (enhancement). ThemeDef catalog with
+                         composite required_pairs:
+                           - Miner-to-AI Pivot (BTC miner + AI/HPC)
+                           - Power + Compute (cheap power/PPA/hydro + GPU/AI)
+                           - Neocloud / GPU Cloud
+                           - Data Center Build-out (DC + megawatt/gigawatt/construction)
+                           - Nuclear for AI (SMR/nuclear + AI/DC)
+                           - AI Infrastructure
+                           - Sovereign AI
+                         detect_themes(text) -> list[ThemeTag] +
+                         aggregate_themes() across items.
+       * catalysts.py  — NEW (enhancement). Kinds:
+                         contract, funding, expansion, pivot, m_and_a,
+                         earnings_beat, partnership, approval.
+                         Each has phrases + strong_phrases (anchor customer,
+                         oversubscribed, gigawatt-scale, fully pivoting...).
+                         detect_catalysts(text) -> list[CatalystTag] +
+                         aggregate_catalysts().
+       * scorer integration of themes + catalysts:
+                         per-item conviction boost =
+                           0.30 * max(theme.relevance) +
+                           0.30 * max(catalyst.strength)
+                         multiplies the recency weight in _aggregate_polarity.
+                         Sign-preserving — themes amplify, never override.
+                         NarrativeResult gained .themes and .catalysts;
+                         to_row() exposes narrative_themes + narrative_catalysts;
+                         explanation surfaces them in plain English when
+                         aggregate strength >= 0.4.
+   - Scanner integrated with narrative layer: MatchResult gained
+     `narrative` + `composite_score` fields; `effective_score` property
+     ranks by composite when present, pattern score otherwise.
+     Narrative scoring only runs on symbols that produced a pattern hit
+     (one news fetch per unique symbol).
+   - src/dashboard/ — Streamlit dashboard (committed):
+       * app.py — thin view over Scanner + run_scan
+       * Sidebar: Discovery vs Watchlist mode, sector multi-select,
+                  pattern toggles (Trend Rider / Bottom Hunter), min-score,
+                  lookback, ETF coverage, narrative overlay + weight slider
+       * Main: summary metrics row, ranked table with progress-bar Score
+               + Composite columns, "Key Signal" derived from top factor,
+               CSV download, per-match detail (factors + headlines),
+               diagnostics expander
+       * @st.cache_data keyed off a frozen ScanParams dataclass (1h TTL)
+       * Launch: `streamlit run src/dashboard/app.py` (or `make run`)
+   - src/backtest/ — backtest + self-refinement loop (committed):
+       * signals.py — generate_signals() replays the scanner bar-by-bar
+                       across history (fetch once, enrich once, slice
+                       forward). Reuses live scanner code — no
+                       second implementation to drift.
+       * engine.py  — run_backtest(), simulate_trades() (next-open entry,
+                       N-day hold, optional cooldown), BacktestReport
+                       dataclass holding signals + trades + metrics +
+                       breakdowns + optional Qlib block + optional
+                       features_evaluation.
+       * metrics.py — win rate, mean/median return, profit factor,
+                       max drawdown (peak-to-trough), sharpe_like
+                       (mean/std × sqrt(N)), breakdown_by(pattern|sector),
+                       breakdown_by_score_band; compute_qlib_metrics()
+                       routes through qlib.contrib.evaluate.risk_analysis
+                       when `qlib` is importable, returns None otherwise.
+       * refine.py  — deterministic Suggestion heuristics, no LLM/ML:
+                       (1) pattern win-rate gap, (2) low-vs-high score
+                       band gap (recommends min_score), (3) sector bias
+                       vs baseline, (4) negative mean return, (5) profit
+                       factor < 1, (6) feature IC promotion (|IR| >= 1.0
+                       on a feature not already a scanner input),
+                       (7) feature IC deprecation (|IR| < 0.3 on a feature
+                       detectors already use). Coverage gates keep
+                       thin samples silent.
+       * report.py  — writes logs/backtest_{YYYYMMDD_HHMMSS}.md
+                       (parameters, overall metrics, Qlib block when
+                       available, by-pattern/sector/score-band tables,
+                       feature evaluation block when present, suggestions)
+                       + appends a dated block to logs/suggestions.md
+                       (the durable human-review journal).
+       * run.py     — CLI: `python -m src.backtest.run --symbols ...`
+                       or `--sector AI Chips ...` or no args for the
+                       full thematic universe. Defaults: min-score 60,
+                       hold 20 days, cooldown 0. Flags:
+                         --evaluate-features --feature-horizon N
+                       Prints a one-line summary + top 5 features by |IR|
+                       (when features enabled) + every suggestion title.
+   - src/features/ — feature engineering layer (committed):
+       * alpha158.py — ~21 Alpha158-style features in pandas
+                       (KMID, KLEN, KUP, KLOW, KMID2, KSFT, ROC5/10/20/60,
+                        MA5/20/60, STD5/20, BETA20, VMA5/20,
+                        IMAX5, IMIN5, QTLU20).
+                       Optional pass-through to real Qlib Alpha158 when
+                       pyqlib + a Qlib data dir are available; clean
+                       fallback otherwise.
+       * custom.py  — scanner-derived (RSI14_Z60, DIST_SMA50_Z60,
+                       DIST_SMA200_Z60, DRAWDOWN_120, DRAWDOWN_120_Z60,
+                       PULLBACK_DEPTH, TREND_REGIME), sector-relative
+                       (SECTOR_RELATIVE_5D / 20D — symbol return minus
+                       sector cohort's median), and narrative-snapshot
+                       (NARRATIVE_SCORE).
+       * evaluator.py — cross-sectional Spearman IC per date, aggregated
+                       to mean_ic / std_ic / IR / t-stat / N. Gates:
+                       MIN_SYMBOLS_PER_DATE (5), MIN_OBSERVATIONS (50).
+                       Output sorted by |IR| desc.
+       * pipeline.py — build_feature_evaluation(symbols, start, end,
+                       forward_horizon=5) end-to-end: fetch -> enrich ->
+                       compute -> panel -> IC.
+   - src/research/ — NEW. Deep-research scaffold (committed):
+       * base.py    — ResearchResult dataclass with the mission's
+                      validation slots (summary, company_quality,
+                      management, partnerships, financial_health,
+                      key_risks, sources, confidence in [0,1], raw).
+                      Researcher protocol (@runtime_checkable).
+                      NullResearcher baseline returning an empty
+                      ResearchResult so the future integration layer
+                      can call .research(sym) unconditionally.
+                      should_research(score, threshold=70.0) +
+                      top_candidates(matches, threshold, limit=5) —
+                      the conviction gate that keeps research as an
+                      opt-in secondary layer rather than a per-symbol
+                      cost on idea generation.
+       * Not wired into Scanner / MatchResult yet — by design.
+         CLAUDE.md spells out the planned integration so the first
+         real Researcher implementation drops in cleanly without
+         churning call sites.
+   - CLAUDE.md updated:
+       * New Mission & Vision section at the top (primary mission,
+         core philosophy, supporting capability, design principles).
+       * Layout diagram updated to include features/, backtest/,
+         research/.
+       * New "Deep research layer (scaffold)" section: contract,
+         conviction gate, planned integration plan into Scanner +
+         MatchResult, "adding a real researcher" recipe.
+       * New convention bullet: optional/opt-in layers (narrative,
+         research, qlib features) must degrade to no-op, never abort.
+
+2. Status:
+   - Scanner module: complete and committed (commit f1e9aab)
+   - Narrative layer (base): complete and committed (commit e0b7daa)
+   - Streamlit dashboard: complete and committed (commit 687add7)
+   - Backtest + self-refinement loop: complete and committed (commit 52b1875)
+   - Feature engineering layer: complete and committed (commit dec337d)
+   - Narrative theme + catalyst enhancement: complete and committed
+     (commit 6aeb7b4)
+   - Mission & Vision + research/ scaffold: complete and committed
+     (commit 0222157, pushed to origin/main)
+   - Test suite: 93 tests passing
+       * test_indicators.py, test_detectors.py, test_scanner.py (scanner core)
+       * test_sentiment.py (7 tests — lexicon + external sentiment)
+       * test_narrative_scorer.py (11 tests — blending + explanations)
+       * test_scanner_narrative.py (6 tests — scanner+narrative integration)
+       * test_backtest.py (18 tests — trade simulation, metrics, breakdowns,
+                            and every refinement heuristic on canned data)
+       * test_features.py (12 tests — Alpha158-lite shapes + formulas,
+                            sector-relative join, IC detection on
+                            synthetic signals, refinement heuristics)
+       * test_themes_catalysts.py (16 tests — theme detection with
+                            composite-pair logic, catalyst detection with
+                            strong-phrase boosts, NarrativeScorer
+                            integration, explanation enrichment)
+       * test_research_scaffold.py (7 tests — NullResearcher behavior,
+                            Researcher protocol conformance, conviction
+                            gate, top-N candidate selector, ResearchResult
+                            to_row() shape)
+   - End-to-end smoke tests:
+       * Synthetic backtest with planted underperformance produced both
+         HIGH-priority refinement suggestions with suggested min_score=70.
+       * Synthetic feature evaluation produced HIGH-priority promotion
+         for a strong external feature + LOW-priority deprecation for a
+         weak scanner input.
+       * Synthetic small-cap AI-infra narrative scored 0.875 with
+         Themes: Data Center Build-out, Power + Compute, Miner-to-AI Pivot,
+         Catalysts: funding, expansion, pivot — and a one-line thesis
+         explanation instead of a generic sentiment summary.
+   - Branch: `main`, up to date with origin/main on GitHub
+     (latest pushed commit: 0222157).
+
+3. Uncommitted artifacts:
+   - progress_summary.txt (this file — working artifact, intentionally
+     left untracked)
+
+   Mission alignment:
+   - Primary mission, core philosophy, design principles, and the
+     supporting deep-research capability are now codified in CLAUDE.md
+     and reflected in the package layout. The scanner + narrative
+     pipeline remains the fast primary engine; src/research/ is the
+     opt-in secondary validation slot for the highest-conviction
+     setups, gated by composite >= 70.0 and capped at top 5 per run.
+
+4. How to run the full system:
+   - Live dashboard:
+       streamlit run src/dashboard/app.py     # or: make run
+   - Backtest with suggestions:
+       python -m src.backtest.run --symbols NVDA,PLTR --start 2024-01-01
+       python -m src.backtest.run --sector AI Chips --start 2024-01-01
+       python -m src.backtest.run --start 2024-01-01     # full universe
+   - Backtest with feature evaluation:
+       python -m src.backtest.run --evaluate-features --start 2024-01-01
+       python -m src.backtest.run --evaluate-features --feature-horizon 10 \
+           --sector AI Chips --start 2024-01-01
+   - Tests:
+       pytest -q          # 93 passing
+
+5. Optional enhancement (not required to run):
+   - `pip install pyqlib` enables annualized risk_analysis (information
+     ratio, annual return, max DD) on top of the in-house metrics, and
+     enables the real Alpha158 handler when a Qlib bin-data dir is set
+     up. The system runs identically with or without pyqlib installed.
+
+6. What the narrative enhancement helps with:
+   - Surfacing under-followed small-cap AI-infra setups: a thin news
+     basket whose few items are the *right kind* (miner-to-AI pivot +
+     hyperscaler contract + capacity expansion) now clears damping and
+     produces a clear bullish narrative score plus a one-line thesis
+     explanation instead of a neutral generic summary.
+   - The themes catalog itself is the agent's watchlist: adding a new
+     theme (e.g. "Optical Interconnect", "Liquid Cooling") is a
+     one-file change in src/narrative/themes.py + a test.
+   - Rule-based, fully auditable — no LLM, no training, no opaque
+     model behavior. Every detection is traceable to the matched_terms.
+
+7. Next steps:
+   - Run a real backtest on the full thematic universe (needs Polygon
+     API key in .env, falls back to yfinance) and review the
+     suggestions journal.
+   - Iterate on detector thresholds / narrative weight / feature
+     promotion based on the refinement journal.
+   - Add more themes / catalysts as new high-conviction storylines
+     emerge (e.g. liquid cooling, optical interconnect, sovereign
+     compute carve-outs).
+   - Build the first real Researcher implementation against the
+     src/research/ protocol — likely LLM-driven over the headlines
+     basket the narrative layer already collects. When it lands:
+     wire researcher + research_limit into Scanner, add the
+     `research` field on MatchResult, render the result in the
+     dashboard's per-match expander.
+
+Copy this file and send it to Grok if needed.
