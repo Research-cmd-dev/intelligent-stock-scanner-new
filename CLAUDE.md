@@ -4,6 +4,27 @@ A daily stock scanner for high-conviction thematic sectors. Detects two patterns
 (**Trend Rider**, **Bottom Hunter**), narrates each match in plain English, and
 presents results through a Streamlit dashboard.
 
+### Mission & Vision
+
+**Primary Mission**  
+To proactively identify emerging and under-appreciated narratives across high-growth sectors — including AI infrastructure, biotechnology, robotics, space, and beyond — and surface technically clean chart setups that offer strong asymmetric upside potential for longer-term investment.
+
+**Core Philosophy**
+- Prioritize forward-looking narratives over mainstream ones
+- Focus on asymmetric reward-to-risk opportunities
+- Maintain a buy-only bias with a longer-term (macro/swing) orientation
+- Combine technical pattern confirmation with intelligent narrative analysis
+- Serve primarily as a high-quality idea generation engine
+
+**Supporting Capability**  
+Deep fundamental research serves as a secondary validation layer that activates only on the highest-conviction setups to evaluate company quality, management track record, partnerships, financial health, and key risks.
+
+**Design Principles**
+- The scanner should remain fast and scalable for idea generation
+- Narrative intelligence should focus on early-stage and under-followed themes
+- The system must be modular and easy to evolve over time
+- All major decisions should align with finding asymmetric upside
+
 ## Stack
 
 - **Python 3.12**
@@ -20,10 +41,19 @@ src/
 ├── config/      sectors universe, scanner thresholds, env loading
 ├── data/        polygon + yfinance clients, unified fetcher with caching
 ├── scanner/     indicators, pattern detectors, top-level scan orchestration
-├── narrative/   plain-English explanation of each match
+├── narrative/   theme + catalyst detection, sentiment, composite scoring
+├── features/    Alpha158-lite + custom features, IC/IR evaluation
+├── backtest/    historical replay, metrics, self-refinement heuristics
+├── research/    deep-research scaffold (protocol + null baseline) — opt-in
+│                secondary validation for the highest-conviction matches
 ├── dashboard/   Streamlit app entrypoint
 └── utils/       logging, small shared helpers
 ```
+
+The flow follows the mission: scanner + narrative are the fast, primary
+**idea-generation** engine; features + backtest close the loop on
+historical performance; research is the **opt-in secondary validation**
+that runs only against high-conviction matches.
 
 Run with `streamlit run src/dashboard/app.py` (or `make run`).
 
@@ -427,6 +457,75 @@ pattern-level ones.
 4. Add a test that exercises the feature on synthetic data with a
    known signal direction.
 
+## Deep research layer (scaffold)
+
+Lives in `src/research/`. Implements the mission's *supporting capability*
+— a secondary validation that activates only on the highest-conviction
+setups. This is currently a **scaffold**: protocol + dataclass + null
+baseline, no real research implementation yet. The shape is fixed now
+so the scanner can be wired to it later without churning call sites.
+
+### Contract
+
+- **`ResearchResult`** — frozen dataclass with the mission's checklist
+  as free-form slots: `summary`, `company_quality`, `management`,
+  `partnerships`, `financial_health`, `key_risks`, plus `sources`,
+  `confidence ∈ [0, 1]`, and a `raw` escape hatch for richer payloads.
+  `to_row()` flattens it for table rendering, mirroring the
+  `NarrativeResult.to_row()` pattern.
+- **`Researcher`** — `@runtime_checkable` protocol with one method:
+  `research(ticker) -> ResearchResult`. Implementations may be slow
+  and network-bound but must never raise — return an empty result
+  with `confidence=0.0` instead. A failing researcher must never
+  abort a scan.
+- **`NullResearcher`** — baseline that returns an empty result. Lets
+  the integration layer call `researcher.research(sym)` unconditionally
+  during wiring without branching.
+
+### Conviction gate
+
+The scanner must never spend a research call on a weak match. Two
+helpers centralize the policy:
+
+- **`should_research(score, *, threshold=70.0)`** — single yes/no on a
+  composite score. Default `DEFAULT_CONVICTION_THRESHOLD = 70.0`
+  matches the dashboard's "70+ clean setup" rule of thumb.
+- **`top_candidates(matches, *, threshold=70.0, limit=5)`** — filter
+  by threshold then take the top-N by `effective_score`. Caps the
+  per-run cost of research even on a wildly bullish day.
+
+### Planned integration (not wired yet)
+
+When the first real researcher lands, integration is intended to
+mirror how the narrative layer plugs into `Scanner`:
+
+1. `Scanner.__init__(..., researcher: Researcher | None = None,
+   research_limit: int = 5)`.
+2. After the narrative pass (so `effective_score` reflects the
+   composite), the orchestrator calls
+   `top_candidates(matches, limit=research_limit)` and runs
+   `researcher.research(sym)` once per *unique* high-conviction
+   symbol — same one-fetch-per-symbol rule the narrative pass uses.
+3. `MatchResult` gains a nullable `research: ResearchResult | None`
+   field. Ranking continues to use `effective_score`; the research
+   payload is rendered in the dashboard's per-match expander.
+4. A research failure on one symbol logs a warning and leaves that
+   match's prior state intact — never aborts the scan.
+
+This stays *opt-in*: the scanner remains fast and pattern + narrative
+remain the primary signal. Research only adds depth on the few names
+already worth attention.
+
+### Adding a real researcher
+
+1. Implement the `Researcher` protocol in a new module under
+   `src/research/`, e.g. `src/research/llm_research.py` defining
+   `LLMResearcher(name="llm", ...).research(ticker) -> ResearchResult`.
+2. Wire it through `Scanner(researcher=LLMResearcher(...))`.
+3. Add an integration test that confirms the scanner only invokes
+   `research()` on symbols clearing `DEFAULT_CONVICTION_THRESHOLD`
+   and never more than `research_limit` times per run.
+
 ## Conventions
 
 - Type hints everywhere; dataclasses for structured returns.
@@ -435,3 +534,6 @@ pattern-level ones.
 - Tests under `tests/` (synthetic data, no network).
 - Indicator column names are constants in `indicators.py`, not literals.
 - Detectors are pure functions of an indicator-augmented DataFrame.
+- Optional / opt-in layers (narrative, research, qlib features) must
+  degrade to a no-op rather than abort the run. Missing data is the
+  default — every layer plans for it.
