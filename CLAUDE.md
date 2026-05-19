@@ -630,6 +630,181 @@ remains the fast primary engine.
    `research()` on symbols clearing `DEFAULT_CONVICTION_THRESHOLD`
    and never more than `research_limit` times per run.
 
+## Modal Compute Layer
+
+Lives in `src/modal_app/` and `src/data/historical.py`. **Optional and
+opt-in.** Importing `src.modal_app` never imports the `modal` client at
+module load time — the dashboard, scanner, and daily workflows are
+completely unaffected by its presence or absence.
+
+### Purpose
+
+Modal gives us a fast, on-demand compute fabric for the *heavy* parts
+of the workflow that don't belong in a Codespace:
+
+- Cold-pulling 5+ years of daily OHLCV for 1k–5k symbols in parallel.
+- Running full-universe backtests + feature evaluation against a
+  consistent, version-locked container.
+- (Future) hosting the intelligence / narrative-research layer when it
+  needs to fan out across many tickers without local resource limits.
+
+Two design principles drive everything in this layer:
+
+1. **The same code runs locally and on Modal.** Detectors, narrative
+   scorer, backtest engine, feature pipeline — all of it is just the
+   `src/` tree, shipped into the container via
+   `add_local_python_source`. There is no Modal-only fork of any
+   business logic.
+2. **Environment, not branches, decides where data lives.** Functions
+   in `src.data.historical` resolve their on-disk root from
+   `STOCK_DATA_ROOT`. Locally that defaults to `data/historical/`; on
+   Modal the function entrypoints set it to `/data/historical` (the
+   mounted volume). Nothing else in the project needs to know.
+
+### Historical OHLCV store
+
+Distinct from the dashboard's `data/cache/` (short-lookback, daily
+refresh). The historical store is the long-term, durable home for full
+price history, owned by `src/data/historical.py`.
+
+- **Layout**: `data/historical/{SYMBOL}.parquet`, one file per
+  ticker, OHLCV columns, tz-naive `date` index, monotonic + unique.
+- **First pull**: ~5 years of daily bars (`DEFAULT_FULL_HISTORY_DAYS`).
+- **Incremental updates**: `update_symbol` reads the last stored bar,
+  requests just the gap (plus a 7-day pad for non-trading days),
+  merges, and atomic-writes via a `.tmp` rename so a crashed write
+  cannot corrupt the store.
+- **Source policy**: Polygon-first, yfinance-fallback — same order as
+  `src/data/fetcher.py` but routed through the historical store's own
+  fetcher so it cannot accidentally pollute `data/cache/`.
+- **Failure mode**: a single-symbol failure logs and returns an
+  `UpdateResult(status="error")`. A 5k-name sweep keeps going.
+- **Parallelism**: `download_universe(symbols, max_workers=N)` uses a
+  thread pool — the underlying clients are HTTP-bound. Default 8
+  workers; Modal jobs override to 16.
+
+#### Loading data for backtests / features
+
+```python
+from src.data import load_history, load_panel
+
+df = load_history("NVDA", start="2024-01-01")   # one symbol, sliced
+frames = load_panel(["NVDA", "PLTR", "AMD"])    # {symbol: DataFrame}
+closes = load_panel(syms, field_name="close")   # wide DataFrame for x-section work
+```
+
+The existing backtest path in `src/backtest/` still calls
+`fetch_ohlcv`. To run a backtest *on top of* the historical store
+without modifying that code, use `warm_cache_from_historical(symbols)`
+first — it copies the relevant parquets into `data/cache/` and
+touches their mtime so the fetcher treats them as fresh hits. Modal's
+`run_backtest_remote` does this automatically.
+
+#### CLI
+
+```bash
+# Local
+python -m src.data.historical download --symbols NVDA,PLTR
+python -m src.data.historical download --sector "AI" "Chips"
+python -m src.data.historical download --all --workers 12
+python -m src.data.historical info NVDA
+python -m src.data.historical list
+```
+
+`make historical-download` / `make historical-list` cover the common
+cases.
+
+### Modal app
+
+`src/modal_app/app.py` defines:
+
+- **App**: `modal.App("stock-finder")`.
+- **Image**: `debian_slim(python_version="3.12")` + project
+  `requirements.txt` + the live `src/` tree.
+- **Volume**: `modal.Volume.from_name("stock_data",
+  create_if_missing=True)`, mounted at `/data`.
+- **Secrets**: `modal.Secret.from_dotenv(path=".env")` ships the
+  developer's local keys (Polygon, Anthropic, …) into the container at
+  job-submission time. No separate `modal secret create` step
+  required for solo dev; teams can swap to `Secret.from_name(...)` in
+  one line.
+
+Two remote functions:
+
+- **`download_universe_remote(symbols, force=False, max_workers=16)`** —
+  refreshes the historical store, commits the volume, returns a
+  summary dict.
+- **`run_backtest_remote(symbols, start, end, ...)`** — optionally
+  refreshes the symbols it needs, warms the cache from the historical
+  store, calls the existing `run_backtest` + `write_report`, writes
+  the markdown report under `/data/backtests/<timestamp>/`, returns
+  the compact summary the local CLI prints.
+
+Both have `@app.local_entrypoint` wrappers so you can fire them with a
+single `modal run` command:
+
+```bash
+modal run src.modal_app.app::download --symbols NVDA,PLTR,AMD
+modal run src.modal_app.app::backtest --symbols NVDA,PLTR --start 2024-01-01 --end 2026-05-01
+```
+
+`make modal-download SYMBOLS=NVDA,PLTR` and
+`make modal-backtest SYMBOLS=NVDA,PLTR START=2024-01-01 END=2026-05-01`
+are the Makefile shorthands.
+
+### Triggering heavy jobs from Codespaces
+
+The `src/modal_app/local_runner.py` helper exists for code (not CLI
+users) that wants to fire remote jobs from inside the repo. It is the
+import boundary the future intelligence layer will sit behind:
+
+```python
+from src.modal_app import local_runner
+
+summary = local_runner.run_backtest(
+    symbols=["NVDA", "PLTR", "AMD"],
+    start="2024-01-01", end="2026-05-01",
+    evaluate_features=True,
+)
+print(summary["report_path"], summary["win_rate"])
+```
+
+`local_runner` imports `modal` lazily so its mere import is free even
+when no remote call is about to happen.
+
+### Tool registry for the future intelligence layer
+
+`src/modal_app/AVAILABLE_TOOLS` is a static, JSON-schema-friendly
+catalog of the remote functions. The intent: a LangGraph / Claude
+agent that decides to "go run a backtest" can wrap each entry as a
+tool with one comprehension:
+
+```python
+from src.modal_app import available_tools
+from src.modal_app import local_runner
+
+tools = {
+    t["name"]: getattr(local_runner, t["name"])
+    for t in available_tools()
+}
+# tools["run_backtest"](symbols=..., start=..., end=...)
+```
+
+Adding a new remote function is therefore a three-step extension:
+write the `@app.function`, write the matching `local_runner` wrapper,
+add an entry to `AVAILABLE_TOOLS`. The agent picks it up
+automatically.
+
+### Cost shape
+
+- A 5000-symbol cold download on a 4-CPU container with 16 workers
+  finishes in minutes, dominated by HTTP latency from the data
+  providers. Subsequent incremental updates pull only the day-or-two
+  gap per symbol.
+- Per backtest: one container start, plus the same wall-clock cost as
+  running it locally. The volume read is free; results land back on
+  the volume so a re-run is even cheaper.
+
 ## Conventions
 
 - Type hints everywhere; dataclasses for structured returns.

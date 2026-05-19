@@ -20,5 +20,8 @@ tenacity>=8.2           # retry/backoff on API failures
 # --- deep research (optional layer) ---
 anthropic>=0.40         # LLMResearcher backend
 
+# --- compute layer (optional, opt-in) ---
+modal>=0.64             # remote heavy jobs + persistent stock_data volume
+
 # --- dev / test ---
 pytest>=8.0

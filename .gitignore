@@ -20,6 +20,8 @@ env/
 # Cache / data artifacts (keep the directory, ignore contents)
 data/cache/*
 !data/cache/.gitkeep
+data/historical/*
+!data/historical/.gitkeep
 logs/*
 !logs/.gitkeep
 
