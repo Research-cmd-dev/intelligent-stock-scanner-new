@@ -35,6 +35,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import click
+
 # Lazy import: `modal` is only needed when this module is the actual
 # entry point (modal run / modal deploy) or when the local runner
 # triggers a remote call. Tests and other src.modal_app users can
@@ -230,19 +232,28 @@ def run_backtest_remote(
 @app.local_entrypoint()
 def download(
     symbols: str = "",
-    sector: list[str] = [],
+    sector: str = "",
     days: int = 0,
     force: bool = False,
     workers: int = 16,
 ) -> None:
     """Download historical data via Modal.
 
+    The --sector parameter accepts a comma or space separated list of sectors.
+
     Examples:
         modal run -m src.modal_app.app::download --symbols NVDA,PLTR
-        modal run -m src.modal_app.app::download --sector AI --sector Chips --days 5500 --force
+        modal run -m src.modal_app.app::download --sector "AI,Chips,Nuclear,Space,Power,Robotics,Bio" --days 5500 --force
     """
     sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()] if symbols else []
-    sector_syms = tickers_for_sectors(sector) if sector else []
+
+    if sector:
+        # Support comma or whitespace separated sectors
+        import re
+        sector_list = re.split(r'[,\s]+', sector.strip())
+        sector_syms = tickers_for_sectors([s for s in sector_list if s])
+    else:
+        sector_syms = []
 
     final_syms = sorted(set(sym_list) | set(sector_syms))
 
