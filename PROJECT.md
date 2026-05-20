@@ -31,6 +31,9 @@ We are now using **Grok Build** as the primary coding agent.
 - Dashboard: `streamlit run src/dashboard/app.py`
 - Historical data download: `python -m src.data.historical download`
 - Backtest: `python -m src.backtest.run`
+- Modal remote operations (after `modal token new`):
+    - `modal run -m src.modal_app.app::download --symbols NVDA,PLTR`
+    - Sector-based: `modal run -m src.modal_app.app::download --sector AI --sector Chips --days 5500 --force` (now supported)
 
 ### X (Twitter) Posts in the Narrative Layer
 

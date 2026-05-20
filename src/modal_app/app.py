@@ -42,6 +42,7 @@ from typing import Any
 import modal  # noqa: E402  (kept at top because Modal decorators need it)
 
 from src.config import get_settings
+from src.config.sectors import tickers_for_sectors
 
 # ---------------------------------------------------------------------- #
 # Volume + image + app                                                   #
@@ -110,6 +111,7 @@ def download_universe_remote(
     *,
     force: bool = False,
     max_workers: int = 16,
+    days: int = 0,
 ) -> dict[str, Any]:
     """Refresh the volume's historical store and return a summary dict."""
     _activate_volume_paths()
@@ -121,7 +123,7 @@ def download_universe_remote(
 
     from src.data.historical import download_universe
 
-    report = download_universe(symbols, force=force, max_workers=max_workers)
+    report = download_universe(symbols, force=force, max_workers=max_workers, lookback_days=days or None)
     stock_data_volume.commit()  # persist writes across invocations
     return report.to_dict()
 
@@ -226,10 +228,30 @@ def run_backtest_remote(
 
 
 @app.local_entrypoint()
-def download(symbols: str, force: bool = False, workers: int = 16) -> None:
-    """`modal run src.modal_app.app::download --symbols NVDA,PLTR`."""
-    syms = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-    summary = download_universe_remote.remote(syms, force=force, max_workers=workers)
+def download(
+    symbols: str = "",
+    sector: list[str] = [],
+    days: int = 0,
+    force: bool = False,
+    workers: int = 16,
+) -> None:
+    """Download historical data via Modal.
+
+    Examples:
+        modal run -m src.modal_app.app::download --symbols NVDA,PLTR
+        modal run -m src.modal_app.app::download --sector AI --sector Chips --days 5500 --force
+    """
+    sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()] if symbols else []
+    sector_syms = tickers_for_sectors(sector) if sector else []
+
+    final_syms = sorted(set(sym_list) | set(sector_syms))
+
+    if not final_syms:
+        raise ValueError("Must provide --symbols and/or --sector")
+
+    summary = download_universe_remote.remote(
+        final_syms, force=force, max_workers=workers, days=days
+    )
     s = summary["summary"]
     print(
         f"created={s['created']} updated={s['updated']} "
@@ -245,14 +267,32 @@ def backtest(
     end: str,
     min_score: float = 60.0,
     hold_days: int = 20,
+    cooldown_days: int = 0,
     evaluate_features: bool = False,
+    feature_horizon: int = 5,
+    refresh: bool = True,
 ) -> None:
-    """`modal run src.modal_app.app::backtest --symbols NVDA,PLTR --start 2024-01-01 --end 2026-05-01`."""
+    """
+    Run a backtest remotely on Modal.
+
+    Example:
+        modal run -m src.modal_app.app::backtest \
+            --symbols NVDA,PLTR \
+            --start 2024-01-01 --end 2026-05-01 \
+            --min-score 65 --hold-days 30 --cooldown-days 5 \
+            --evaluate-features --feature-horizon 10
+    """
     syms = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     out = run_backtest_remote.remote(
-        syms, start=start, end=end,
-        min_score=min_score, hold_days=hold_days,
+        syms,
+        start=start,
+        end=end,
+        min_score=min_score,
+        hold_days=hold_days,
+        cooldown_days=cooldown_days,
         evaluate_features=evaluate_features,
+        feature_horizon=feature_horizon,
+        refresh=refresh,
     )
     print(f"\nReport: {out['report_path']}")
     print(f"  signals={out['signals']} trades={out['trades']}")

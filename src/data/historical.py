@@ -258,14 +258,15 @@ class DownloadReport:
         }
 
 
-def update_symbol(symbol: str, *, force: bool = False) -> UpdateResult:
+def update_symbol(symbol: str, *, force: bool = False, lookback_days: int | None = None) -> UpdateResult:
     """Pull any missing bars for ``symbol`` and merge into the store.
 
-    * If no parquet exists yet, pulls ``DEFAULT_FULL_HISTORY_DAYS`` of
-      history and creates it.
+    * If no parquet exists yet, pulls ``lookback_days`` (or DEFAULT_FULL_HISTORY_DAYS)
+      of history and creates it.
     * If a parquet exists, pulls only the gap between ``last_stored +
       1`` and today (plus a pad for non-trading days).
-    * ``force=True`` re-pulls the full default window and overwrites.
+    * ``force=True`` re-pulls the requested window (or default) and overwrites.
+    * ``lookback_days`` can be passed to override the default history depth for new/forced symbols.
 
     Never raises — failures return an ``UpdateResult`` with
     ``status="error"`` so a batch loop can keep going.
@@ -286,7 +287,7 @@ def update_symbol(symbol: str, *, force: bool = False) -> UpdateResult:
         )
 
     if last is None:
-        lookback = DEFAULT_FULL_HISTORY_DAYS
+        lookback = lookback_days or DEFAULT_FULL_HISTORY_DAYS
     else:
         lookback = max(1, (today - last).days) + INCREMENTAL_PAD_DAYS
 
@@ -334,12 +335,16 @@ def download_universe(
     force: bool = False,
     max_workers: int = DEFAULT_MAX_WORKERS,
     progress: bool = False,
+    lookback_days: int | None = None,
 ) -> DownloadReport:
     """Refresh the historical store for many symbols in parallel.
 
     Concurrency is thread-based because the underlying clients spend
     almost all their time on HTTP I/O. ``max_workers`` defaults to a
     conservative 8; raise it when you have a paid Polygon plan.
+
+    If ``lookback_days`` is provided, new symbols (or forced refreshes)
+    will pull that many days of history instead of the default 5-year window.
     """
     started = time.time()
     started_iso = datetime.now(tz=timezone.utc).isoformat()
@@ -350,7 +355,10 @@ def download_universe(
              len(syms), max_workers, force)
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(update_symbol, s, force=force): s for s in syms}
+        futures = {
+            pool.submit(update_symbol, s, force=force, lookback_days=lookback_days): s
+            for s in syms
+        }
         for i, fut in enumerate(as_completed(futures), 1):
             result = fut.result()
             results.append(result)
@@ -496,6 +504,8 @@ def _cli(argv: list[str] | None = None) -> int:
                     help="Ignore existing files and re-pull full history.")
     dl.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS,
                     help=f"Parallel download workers (default {DEFAULT_MAX_WORKERS}).")
+    dl.add_argument("--days", type=int, default=0,
+                    help="Days of history to pull for new or forced symbols (default: 5 years).")
     dl.add_argument("--json", action="store_true",
                     help="Print the full report as JSON to stdout.")
 
@@ -524,7 +534,11 @@ def _cli_download(args: argparse.Namespace) -> int:
         return 2
 
     report = download_universe(
-        symbols, force=args.force, max_workers=args.workers, progress=True,
+        symbols,
+        force=args.force,
+        max_workers=args.workers,
+        progress=True,
+        lookback_days=args.days or None,
     )
 
     if args.json:

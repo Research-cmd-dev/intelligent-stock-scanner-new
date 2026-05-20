@@ -1,0 +1,11 @@
+Modal Authentication Link (for `modal token new`)
+
+https://modal.com/token-flow/tf-BX1YvneDvgH4V0d9CtcQjF
+
+Instructions:
+1. Open the link above in your browser.
+2. Log in / complete the authentication flow.
+3. Modal will save the token locally on this machine.
+4. After completion, you can verify with: `modal --version` or `modal token list`
+
+This link was generated on 2026-05-20 in the Codespace.

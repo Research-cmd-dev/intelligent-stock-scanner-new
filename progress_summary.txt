@@ -1,380 +1,288 @@
 === CURRENT PROJECT PROGRESS SUMMARY (Stock Finder Agent) ===
+Date: 2026-05-20
+Last Major Updates: X (Twitter) High-Quality Accounts Integration + UTC Date/Time Standardization
 
-1. What we have built so far:
-   - Full project scaffolding (.devcontainer, requirements.txt, CLAUDE.md, Makefile, .env.example)
-   - src/config/ — sectors universe + settings (env loading)
-   - src/data/ — Polygon + yfinance clients, unified fetcher with on-disk
-     parquet cache, PLUS durable historical store (new — see Modal Compute
-     Layer section below)
-   - src/utils/ — logging
-   - src/scanner/ — indicators, universe builder, Trend Rider + Bottom Hunter
-     detectors, Scanner class, MatchResult + Factor scoring (committed)
-   - src/narrative/ — full intelligent narrative layer (committed, then enhanced):
-       * sources/  — NewsSource protocol, Polygon + yfinance adapters,
-                     on-disk JSON cache (data/cache/news/), dedup
-       * lexicon.py    — finance-flavored positive/negative word + phrase lists
-       * sentiment.py  — Sentiment protocol + LexiconSentiment
-                         (prefers Polygon's per-article external_sentiment
-                         when present, falls back to lexicon)
-       * scorer.py     — NarrativeScorer.score(ticker) -> NarrativeResult,
-                         recency-weighted aggregation (5-day half-life),
-                         thin-coverage damping, explanation builder,
-                         blend_composite() (80% pattern / 20% narrative default)
-       * themes.py     — ThemeDef catalog with composite required_pairs:
-                           - Miner-to-AI Pivot (BTC miner + AI/HPC)
-                           - Power + Compute (cheap power/PPA/hydro + GPU/AI)
-                           - Neocloud / GPU Cloud
-                           - Data Center Build-out (DC + megawatt/gigawatt/construction)
-                           - Nuclear for AI (SMR/nuclear + AI/DC)
-                           - AI Infrastructure
-                           - Sovereign AI
-                         detect_themes(text) -> list[ThemeTag] +
-                         aggregate_themes() across items.
-       * catalysts.py  — Kinds: contract, funding, expansion, pivot, m_and_a,
-                         earnings_beat, partnership, approval.
-                         Each has phrases + strong_phrases (anchor customer,
-                         oversubscribed, gigawatt-scale, fully pivoting...).
-                         detect_catalysts(text) -> list[CatalystTag] +
-                         aggregate_catalysts().
-       * scorer integration of themes + catalysts:
-                         per-item conviction boost =
-                           0.30 * max(theme.relevance) +
-                           0.30 * max(catalyst.strength)
-                         multiplies the recency weight in _aggregate_polarity.
-                         Sign-preserving — themes amplify, never override.
-                         NarrativeResult exposes .themes and .catalysts;
-                         to_row() exposes narrative_themes + narrative_catalysts;
-                         explanation surfaces them when aggregate >= 0.4.
-   - Scanner integrated with narrative layer: MatchResult has
-     `narrative` + `composite_score` fields; `effective_score` property
-     ranks by composite when present, pattern score otherwise.
-     Narrative scoring only runs on symbols that produced a pattern hit
-     (one news fetch per unique symbol).
-   - src/dashboard/ — Streamlit dashboard (committed):
-       * app.py — thin view over Scanner + run_scan
-       * Sidebar: Discovery vs Watchlist mode, sector multi-select,
-                  pattern toggles (Trend Rider / Bottom Hunter), min-score,
-                  lookback, ETF coverage, narrative overlay + weight slider
-       * Main: summary metrics row, ranked table with progress-bar Score
-               + Composite columns, "Key Signal" derived from top factor,
-               CSV download, per-match detail (factors + headlines +
-               research expander), diagnostics expander
-       * @st.cache_data keyed off a frozen ScanParams dataclass (1h TTL)
-       * Launch: `streamlit run src/dashboard/app.py` (or `make run`)
-   - src/backtest/ — backtest + self-refinement loop (committed):
-       * signals.py — generate_signals() replays the scanner bar-by-bar
-                       across history (fetch once, enrich once, slice
-                       forward). Reuses live scanner code — no
-                       second implementation to drift.
-       * engine.py  — run_backtest(), simulate_trades() (next-open entry,
-                       N-day hold, optional cooldown), BacktestReport
-                       dataclass holding signals + trades + metrics +
-                       breakdowns + optional Qlib block + optional
-                       features_evaluation.
-       * metrics.py — win rate, mean/median return, profit factor,
-                       max drawdown, sharpe_like, breakdown_by(pattern|sector),
-                       breakdown_by_score_band; compute_qlib_metrics()
-                       routes through qlib.contrib.evaluate.risk_analysis
-                       when `qlib` is importable, returns None otherwise.
-       * refine.py  — deterministic Suggestion heuristics, no LLM/ML:
-                       (1) pattern win-rate gap, (2) low-vs-high score
-                       band gap, (3) sector bias, (4) negative mean return,
-                       (5) PF < 1, (6) feature IC promotion (|IR| >= 1.0),
-                       (7) feature IC deprecation (|IR| < 0.3).
-                       Coverage gates keep thin samples silent.
-       * report.py  — writes logs/backtest_{YYYYMMDD_HHMMSS}.md
-                       + appends a dated block to logs/suggestions.md.
-       * run.py     — CLI: `python -m src.backtest.run --symbols ...`
-                       or `--sector AI Chips ...` or no args for the
-                       full thematic universe. Flags: --evaluate-features,
-                       --feature-horizon N. Prints one-line summary +
-                       top 5 features by |IR| + every suggestion title.
-   - src/features/ — feature engineering layer (committed):
-       * alpha158.py — ~21 Alpha158-style features in pandas
-                       (KMID, KLEN, KUP, KLOW, KMID2, KSFT, ROC5/10/20/60,
-                        MA5/20/60, STD5/20, BETA20, VMA5/20,
-                        IMAX5, IMIN5, QTLU20).
-                       Optional pass-through to real Qlib Alpha158 when
-                       pyqlib + a Qlib data dir are available; clean
-                       fallback otherwise.
-       * custom.py  — scanner-derived (RSI14_Z60, DIST_SMA50_Z60,
-                       DIST_SMA200_Z60, DRAWDOWN_120, DRAWDOWN_120_Z60,
-                       PULLBACK_DEPTH, TREND_REGIME), sector-relative
-                       (SECTOR_RELATIVE_5D / 20D — symbol return minus
-                       sector cohort's median), and narrative-snapshot
-                       (NARRATIVE_SCORE).
-       * evaluator.py — cross-sectional Spearman IC per date, aggregated
-                       to mean_ic / std_ic / IR / t-stat / N. Gates:
-                       MIN_SYMBOLS_PER_DATE (5), MIN_OBSERVATIONS (50).
-                       Output sorted by |IR| desc.
-       * pipeline.py — build_feature_evaluation(symbols, start, end,
-                       forward_horizon=5) end-to-end: fetch -> enrich ->
-                       compute -> panel -> IC.
-   - src/research/ — DEEP RESEARCH LAYER (scaffold + first real
-                     implementation + scanner/dashboard wiring all landed):
-       * base.py    — ResearchResult dataclass with the mission's six
-                      validation slots (summary, company_quality,
-                      management, partnerships, financial_health,
-                      key_risks, sources, confidence in [0,1], raw).
-                      Researcher protocol (@runtime_checkable).
-                      NullResearcher baseline returning an empty
-                      ResearchResult so the integration layer can call
-                      .research(sym) unconditionally.
-                      should_research(score, threshold=70.0) +
-                      top_candidates(matches, threshold, limit=5,
-                                     unique_by="symbol") — the conviction
-                      gate keeping research as opt-in secondary validation
-                      rather than a per-symbol cost on idea generation.
-       * llm_researcher.py — first real Researcher: Anthropic-SDK-backed
-                      synthesizer over the same headline basket the
-                      narrative scorer collected. Defaults to
-                      claude-sonnet-4-6 with prompt caching on the
-                      rubric system prompt + structured-output JSON
-                      schema mirroring ResearchResult. Per-call timeout
-                      30s, max_tokens=1024. Fails soft to empty result
-                      with confidence=0.0 (no key, API error, malformed
-                      JSON — all treated the same).
-       * Wired into Scanner + dashboard (commit 7e94117):
-                      - MatchResult gained a nullable `research` field
-                        alongside `narrative`; to_row() exposes
-                        research_summary + research_confidence.
-                      - Scanner(researcher=..., research_limit=5) runs
-                        the enrichment AFTER narrative scoring + after
-                        min_score filter + sort, so research operates on
-                        the final ranked list and never re-orders it.
-                      - Selection uses top_candidates(... unique_by=
-                        "symbol") so a multi-pattern hit on one symbol
-                        consumes exactly ONE research slot.
-                      - Researcher failure on any one symbol is logged
-                        and skipped — that symbol's matches keep
-                        research=None, scan continues.
-                      - Dashboard per-match detail expander renders a
-                        collapsible "Deep research (fundamental read)"
-                        subsection: confidence progress bar, summary,
-                        then company_quality / management / partnerships
-                        / financial_health / key_risks. Empty payload
-                        renders as a one-line caption.
-   - MODAL COMPUTE LAYER — new this session (uncommitted):
-       * src/data/historical.py — durable per-symbol OHLCV store
-                      separate from the dashboard's data/cache/:
-                      - Layout: data/historical/{SYMBOL}.parquet,
-                        tz-naive date index, OHLCV cols, monotonic+unique.
-                      - Root resolved from STOCK_DATA_ROOT (Modal sets
-                        this to /data/historical; locally defaults to
-                        data/historical/).
-                      - First pull: ~5 years (DEFAULT_FULL_HISTORY_DAYS).
-                      - Incremental updates: read last bar, request the
-                        gap + 7-day pad, merge dedupe-by-index, atomic
-                        write via .tmp rename.
-                      - Polygon-first, yfinance-fallback (same order as
-                        fetcher.py) but routed through its own fetcher
-                        so it never pollutes data/cache.
-                      - download_universe(symbols, max_workers=N) uses
-                        a thread pool (HTTP I/O bound); default 8
-                        workers locally, 16 on Modal.
-                      - load_history / load_panel for backtests; the
-                        panel form supports `field_name="close"` for
-                        a wide cross-sectional matrix.
-                      - warm_cache_from_historical(symbols) copies
-                        relevant parquets into data/cache and touches
-                        mtime — so the EXISTING backtest path (which
-                        calls fetch_ohlcv) runs unchanged on top of a
-                        Modal-populated volume.
-                      - CLI: `python -m src.data.historical {download |
-                        info | list}` with --symbols / --sector / --all
-                        / --force / --workers / --json.
-       * src/modal_app/ — opt-in Modal client. Importing
-                      src.modal_app does NOT import the `modal` package
-                      at module load (dashboard stays unaffected).
-                      - __init__.py: AVAILABLE_TOOLS catalog +
-                        available_tools() — JSON-schema-friendly tool
-                        descriptors designed for a future LangGraph /
-                        Claude agent to bind in one comprehension.
-                      - app.py: modal.App("stock-finder"), debian_slim
-                        image with requirements.txt + src/ via
-                        add_local_python_source, persistent Volume
-                        "stock_data" mounted at /data, secrets via
-                        modal.Secret.from_dotenv(.env). Two remote
-                        functions:
-                          download_universe_remote(symbols, force,
-                                                   max_workers)
-                          run_backtest_remote(symbols, start, end,
-                                              min_score, hold_days,
-                                              cooldown_days,
-                                              evaluate_features,
-                                              feature_horizon, refresh)
-                        Plus @app.local_entrypoint wrappers `download`
-                        and `backtest` so `modal run ...` is one-liner.
-                      - local_runner.py: lazy-import bridge —
-                        download_historical_data() and run_backtest()
-                        defer the modal import until call time, so
-                        application code can `from src.modal_app import
-                        local_runner` without paying for modal.
-       * requirements.txt: added modal>=0.64 (opt-in dep).
-       * .gitignore: added data/historical/* (matching cache pattern).
-       * Makefile: added historical-download, historical-list,
-                   modal-auth, modal-download, modal-backtest targets.
-       * CLAUDE.md: new "Modal Compute Layer" section covering purpose,
-                    historical store design, CLI examples, modal app
-                    layout, triggering jobs from Codespaces, the tool
-                    registry pattern for the future intelligence layer,
-                    and cost shape.
-   - CLAUDE.md updated:
-       * Mission & Vision section at the top (primary mission,
-         core philosophy, supporting capability, design principles).
-       * Layout diagram includes features/, backtest/, research/.
-       * "Deep research layer" section now documents the wired-in
-         behavior (not just the scaffold contract) plus the
-         LLMResearcher subsection.
-       * "Modal Compute Layer" section (new).
-       * Convention bullet: optional/opt-in layers (narrative, research,
-         modal, qlib features) must degrade to no-op, never abort.
+================================================================================
+1. PROJECT OVERVIEW & MISSION
+================================================================================
 
-2. Status:
-   - Scanner module: complete and committed (commit f1e9aab)
-   - Narrative layer (base): complete and committed (commit e0b7daa)
-   - Streamlit dashboard: complete and committed (commit 687add7)
-   - Backtest + self-refinement loop: complete and committed (commit 52b1875)
-   - Feature engineering layer: complete and committed (commit dec337d)
-   - Narrative theme + catalyst enhancement: complete and committed
-     (commit 6aeb7b4)
-   - Mission & Vision + research/ scaffold: complete and committed
-     (commit 0222157)
-   - LLMResearcher first implementation: complete and committed
-     (commit ce49ff2)
-   - Research layer wired into Scanner + dashboard: complete and
-     committed (commit 7e94117 — current HEAD on main, pushed)
-   - Modal Compute Layer: complete and tested, UNCOMMITTED (this
-     session). All 130 tests still pass; src.modal_app imports cleanly
-     even without `modal` installed; scanner/dashboard untouched.
-   - Test suite: 130 tests passing
-       * test_indicators.py, test_detectors.py, test_scanner.py (scanner core)
-       * test_sentiment.py (7 tests — lexicon + external sentiment)
-       * test_narrative_scorer.py (11 tests — blending + explanations)
-       * test_scanner_narrative.py (6 tests — scanner+narrative integration)
-       * test_backtest.py (18 tests — trade simulation, metrics,
-                            breakdowns, every refinement heuristic on
-                            canned data)
-       * test_features.py (12 tests — Alpha158-lite shapes + formulas,
-                            sector-relative join, IC detection on
-                            synthetic signals, refinement heuristics)
-       * test_themes_catalysts.py (16 tests — theme detection with
-                            composite-pair logic, catalyst detection
-                            with strong-phrase boosts, NarrativeScorer
-                            integration, explanation enrichment)
-       * test_research_scaffold.py (7 tests — NullResearcher behavior,
-                            Researcher protocol conformance, conviction
-                            gate, top-N selector, ResearchResult shape)
-       * test_research_llm.py — LLMResearcher unit tests (mocked
-                            Anthropic client; structured-output happy
-                            path + every fail-soft branch)
-       * test_scanner_research.py — Scanner + Researcher integration:
-                            only invokes research() above the
-                            conviction threshold, never more than
-                            research_limit times, same symbol with two
-                            patterns consumes one research slot.
-       * test_historical.py (10 tests — new this session: load empty,
-                            create then unchanged, incremental append
-                            with overlap, error-soft on fetch failure,
-                            download_universe aggregation, panel
-                            dict + wide forms, panel bad field guard,
-                            warm_cache_from_historical mtime touch,
-                            tz-aware index normalization, tool catalog
-                            shape).
-   - Branch: `main`, HEAD = 7e94117 (research wiring), pushed to
-     origin/main. Modal layer pending commit.
+Primary Mission:
+To proactively identify emerging and under-appreciated narratives across high-growth 
+sectors (AI infrastructure, biotechnology, robotics, space, power, etc.) and surface 
+technically clean chart setups that offer strong asymmetric upside potential for 
+longer-term investment.
 
-3. Uncommitted artifacts:
-   - progress_summary.txt (this file — intentionally untracked working artifact)
-   - src/data/historical.py (NEW)
-   - src/modal_app/ (NEW package: __init__.py, app.py, local_runner.py)
-   - tests/test_historical.py (NEW)
-   - data/historical/.gitkeep (NEW)
-   - Modified: .env.example, .gitignore, CLAUDE.md, Makefile,
-                requirements.txt, src/data/__init__.py
+Core Philosophy:
+- Technicals are the foundation — the chart must show something meaningful.
+- Narrative and catalysts are major multipliers.
+- Quality dramatically outweighs quantity.
+- Focus on macro/swing timeframes, not day trading.
+- Serve as a high-quality idea generation engine with a smart, persistent watchlist.
 
-   Mission alignment:
-   - Primary mission, core philosophy, design principles, and the
-     supporting deep-research capability are codified in CLAUDE.md and
-     reflected in the package layout. Scanner + narrative remain the
-     fast primary engine; src/research/ is the wired-in opt-in
-     secondary validation gated by composite >= 70.0 and capped at top
-     N per run; src/modal_app/ is the new compute fabric for heavy
-     jobs (5k-symbol downloads, full-universe backtests) without
-     disturbing daily idea-generation workflow.
+Supporting Capability:
+Deep fundamental research (via LLMResearcher) acts as a secondary validation layer 
+that activates only on the highest-conviction setups (composite score >= 70).
 
-4. How to run the full system:
-   - Live dashboard:
-       streamlit run src/dashboard/app.py     # or: make run
-   - Local historical data:
-       python -m src.data.historical download --sector "AI" "Chips"
-       python -m src.data.historical download --all --workers 12
-       python -m src.data.historical info NVDA
-       python -m src.data.historical list
-   - Backtest with suggestions:
-       python -m src.backtest.run --symbols NVDA,PLTR --start 2024-01-01
-       python -m src.backtest.run --sector AI Chips --start 2024-01-01
-       python -m src.backtest.run --start 2024-01-01     # full universe
-   - Backtest with feature evaluation:
-       python -m src.backtest.run --evaluate-features --start 2024-01-01
-       python -m src.backtest.run --evaluate-features --feature-horizon 10 \
-           --sector AI Chips --start 2024-01-01
-   - Modal compute:
-       modal token new                                            # one-time auth
-       modal run src.modal_app.app::download --symbols NVDA,PLTR
-       modal run src.modal_app.app::backtest --symbols NVDA,PLTR \
-           --start 2024-01-01 --end 2026-05-01
-       # Or via Makefile:
-       make modal-download SYMBOLS=NVDA,PLTR,AMD
-       make modal-backtest SYMBOLS=NVDA,PLTR START=2024-01-01 END=2026-05-01
-   - Tests:
-       pytest -q          # 130 passing
+We are now using **Grok Build** as the primary coding agent (documented in PROJECT.md).
 
-5. Optional enhancements (not required to run):
-   - `pip install pyqlib` enables annualized risk_analysis (information
-     ratio, annual return, max DD) on top of the in-house metrics, and
-     enables the real Alpha158 handler when a Qlib bin-data dir is set
-     up.
-   - `pip install modal` enables the Modal compute layer. Without it
-     the rest of the system runs identically.
-   - `ANTHROPIC_API_KEY` in .env enables LLMResearcher. Without it the
-     constructor still succeeds and every research() call returns an
-     empty result with confidence=0.0 — same contract as a network
-     failure.
+================================================================================
+2. DETAILED ARCHITECTURE & LAYER BREAKDOWN
+================================================================================
 
-6. What the recent layers help with:
-   - Narrative enhancement (themes + catalysts): under-followed
-     small-cap AI-infra setups whose thin news basket happens to be
-     the *right kind* (miner-to-AI pivot + hyperscaler contract +
-     capacity expansion) clear damping and produce a clear bullish
-     score plus a one-line thesis instead of a neutral summary.
-   - LLMResearcher: on the same setups, surfaces a structured
-     fundamental read (company quality, management, partnerships,
-     financial health, risks) inside the dashboard's per-match
-     expander — only for matches that clear composite >= 70.0, capped
-     per scan. Cents per run with Sonnet 4.6 + prompt caching.
-   - Modal compute: cold-pulling 5+ years of OHLCV for 1k-5k symbols
-     finishes in minutes inside a 4-CPU container with 16 workers;
-     subsequent incremental updates pull just the gap. Full-universe
-     backtests run against a version-locked image with the volume
-     pre-warmed — no Codespace memory limits, no overnight downloads
-     blocking the dashboard.
+--- 2.1 Core Data Layer (src/data/) ---
+- polygon_client.py: Direct REST calls to Polygon aggregates endpoint. 
+  Handles lookback calculations using get_current_utc_date().
+- yfinance_client.py: Fallback data source. Normalizes index to tz-naive date.
+- fetcher.py: Unified entry point. Tries Polygon first, falls back to yfinance.
+  Implements disk cache (data/cache/) with freshness check using 
+  get_current_utc_date(). Critical for dashboard performance.
+- historical.py: Durable long-term OHLCV store (data/historical/{SYMBOL}.parquet).
+  - Incremental updates with gap detection + 7-day pad.
+  - Atomic writes using .tmp + os.replace pattern.
+  - ThreadPoolExecutor for parallel downloads.
+  - Supports warm_cache_from_historical() to feed the existing fetcher cache.
+- __init__.py: Exposes fetch_ohlcv, load_history, load_panel, etc.
 
-7. Next steps:
-   - Commit the Modal compute layer.
-   - Wire the Modal historical store as the canonical data source for
-     scheduled jobs (e.g. nightly refresh on Modal cron, dashboard
-     reads from local mirror).
-   - First real intelligence-layer agent against the AVAILABLE_TOOLS
-     catalog — likely a LangGraph planner that decides when to run a
-     full-universe backtest vs a focused one based on the narrative
-     layer's daily output.
-   - Run a real backtest on the full thematic universe via Modal and
-     review the suggestions journal.
-   - Iterate on detector thresholds / narrative weight / feature
-     promotion based on the refinement journal.
-   - Add more themes / catalysts as new high-conviction storylines
-     emerge (liquid cooling, optical interconnect, sovereign compute
-     carve-outs).
+--- 2.2 Configuration & Sectors (src/config/) ---
+- sectors.py: Curated thematic universe (AI Chips, Biotech, Robotics, Space, 
+  Nuclear, etc.) plus ETF proxies and broad market symbols.
+- settings.py: Environment loading via dotenv. Supports POLYGON_API_KEY, 
+  ANTHROPIC_API_KEY, X_BEARER_TOKEN, TWITTER_BEARER_TOKEN, STOCK_DATA_ROOT.
 
-Copy this file and send it to Grok if needed.
+--- 2.3 Utilities (src/utils/) ---
+- logging.py: Centralized logger.
+- time.py (NEW): 
+  - get_current_utc_datetime() → timezone-aware UTC datetime
+  - get_current_utc_date() → UTC date object
+  - Used everywhere for "today" decisions to eliminate timezone drift.
+
+--- 2.4 Scanner Layer (src/scanner/) ---
+- indicators.py: add_indicators() — adds SMA20/50/200, EMA21, RSI14, ATR14, 
+  vol_sma20, returns, drawdown_120, SMA slopes, distance-from-MA, etc.
+  Column names are exported as constants (no string literals in detectors).
+- patterns/
+  - base.py: MatchResult dataclass, Factor, clamp(), triangular() scoring helpers.
+  - trend_rider.py: Trend-following pattern with hard gates (SMA50 > SMA200, 
+    price > SMA200, dist_sma50 in [-5%, +10%], etc.).
+  - bottom_hunter.py: Reversal pattern after significant damage + basing.
+- universe.py: Builds discovery list from sectors + thematic ETFs.
+- scanner.py: Orchestrates fetch → indicators → detectors → optional narrative → 
+  optional research.
+
+--- 2.5 Narrative Layer (src/narrative/) — Major Recent Enhancement ---
+- sources/
+  - base.py: NewsSource protocol + NewsItem dataclass + dedup_key logic.
+  - polygon_news.py, yfinance_news.py: Existing news adapters.
+  - x_accounts.py (NEW): HIGH_QUALITY_X_ACCOUNTS list (16 accounts as of latest update, 
+    including unusual_whales).
+  - x_news.py (NEW): XAccountsNewsSource — queries X API v2 recent search using 
+    from:account (SYMBOL OR $SYMBOL) patterns. Returns NewsItem with provider="x".
+    Falls back silently if no X_BEARER_TOKEN.
+- sentiment.py: LexiconSentiment (prefers external_sentiment when present).
+- themes.py: Keyword-based detection of narrative themes with core_terms, 
+  support_terms, and required_pairs for composites.
+- catalysts.py: Phrase-based detection of discrete events (contract, partnership, 
+  pivot, etc.) with strong_phrases for higher strength.
+- scorer.py: NarrativeScorer — fetches from all sources, scores sentiment, 
+  detects themes/catalysts, applies recency decay (half-life 5 days), applies 
+  conviction boosts, produces NarrativeResult.
+  - X posts receive an additional _X_MOMENTUM_BOOST (0.12) when they have 
+    theme or catalyst signal.
+- cache.py: Daily news cache (data/cache/news/{SYMBOL}_YYYY-MM-DD.json) using 
+  get_current_utc_date() for keys.
+
+--- 2.6 Dashboard (src/dashboard/app.py) ---
+- Thin Streamlit view.
+- Supports Discovery scan and Watchlist mode.
+- Narrative weight slider, research expanders, per-match detail.
+- Uses @st.cache_data with frozen ScanParams.
+
+--- 2.7 Backtest & Self-Refinement (src/backtest/) ---
+- signals.py: Bar-by-bar replay using Scanner.scan_frame() on historical slices.
+- engine.py: Trade simulation with next-bar entry, hold period, cooldown.
+- metrics.py + refine.py: Full metrics + deterministic improvement suggestions.
+- Supports feature evaluation via --evaluate-features.
+
+--- 2.8 Features Layer (src/features/) ---
+- alpha158.py, custom.py, evaluator.py, pipeline.py.
+- Computes IC/IR for feature quality assessment during backtests.
+
+--- 2.9 Research Layer (src/research/) ---
+- base.py: ResearchResult dataclass, Researcher protocol, conviction gate helpers.
+- llm_researcher.py: Production implementation using Anthropic with:
+  - Prompt caching on system prompt.
+  - Structured JSON output matching ResearchResult schema.
+  - One call per unique high-conviction symbol (research_limit).
+- Fully wired into Scanner and dashboard.
+
+--- 2.10 Modal Compute Layer (src/modal_app/ + src/data/historical.py) ---
+- Durable historical store designed to work identically locally and on Modal.
+- Remote functions for heavy downloads and backtests.
+- AVAILABLE_TOOLS catalog for future agent use.
+
+--- 2.11 Date/Time Standardization (Critical Recent Work) ---
+- Problem: Mix of date.today() (local) and datetime.now(tz=timezone.utc) caused 
+  off-by-one day errors in cache checks and incremental logic, especially in 
+  cloud environments.
+- Solution: All "current day" logic now uses get_current_utc_date() from 
+  src/utils/time.py.
+- Files updated: historical.py, polygon_client.py, fetcher.py, 
+  narrative/sources/cache.py.
+- Test impact: Fixed the flaky `test_request_shape_matches_prompt_caching_contract` 
+  that relied on hardcoded dates.
+
+================================================================================
+3. RECENT MAJOR ADDITIONS (This Session)
+================================================================================
+
+A. X (Twitter) High-Quality Accounts Narrative Signal
+   - New files: src/narrative/sources/x_accounts.py, x_news.py
+   - Curated list of 17 accounts (as of latest update) across categories:
+     Real-time Market News, Macro Commentary, AI/Tech, Technical Analysis, 
+     Sector-Specific.
+   - Implementation: Uses X API v2 /2/tweets/search/recent with from: operators.
+   - Integration: Posts are treated as NewsItem with provider="x". They receive 
+     an extra 0.12 conviction boost in _item_boost() when they carry theme or 
+     catalyst signal.
+   - Optionality: Completely silent if no bearer token. No breakage to existing 
+     flows.
+   - Latest addition: "unusual_whales" added to Technical Analysis & Market Flow 
+     section.
+
+B. UTC Date/Time Centralization
+   - New file: src/utils/time.py with two pure functions.
+   - Migration of all critical "today" logic.
+   - Documentation added to PROJECT.md under "Date/Time Handling" section.
+   - Eliminates a major source of non-determinism.
+
+C. Documentation Migration
+   - Full switch from CLAUDE.md to PROJECT.md as the canonical project instruction 
+     file.
+   - PROJECT.md now contains Mission, X integration details, Date/Time Handling, 
+     and How to Run sections.
+
+================================================================================
+4. CURRENT STATUS
+================================================================================
+
+- All core layers complete and pushed to main.
+- Latest commit (d13cfcc): "Add optional X (Twitter) high-quality accounts to 
+  narrative layer + centralize UTC date/time handling"
+- Previous major commit: Modal Compute Layer (c1cc9c6)
+- Test suite: All tests passing. The date-sensitive LLM research test is now 
+  robust.
+- Primary instruction file: PROJECT.md (Grok Build as primary agent)
+- No critical blockers.
+
+================================================================================
+5. HOW TO RUN (DETAILED)
+================================================================================
+
+Dashboard:
+  streamlit run src/dashboard/app.py
+
+Historical Data (Local):
+  python -m src.data.historical download --all --workers 12
+  python -m src.data.historical download --symbols NVDA,PLTR
+  python -m src.data.historical info NVDA
+
+Backtesting:
+  python -m src.backtest.run --symbols NVDA,PLTR --start 2024-01-01
+  python -m src.backtest.run --evaluate-features --start 2024-01-01
+
+Modal (requires modal + token):
+  modal run src.modal_app.app::download --symbols NVDA,PLTR
+  modal run src.modal_app.app::backtest --symbols NVDA,PLTR \
+      --start 2024-01-01 --end 2026-05-01
+
+Enabling X Signal:
+  export X_BEARER_TOKEN=your_token   # or TWITTER_BEARER_TOKEN
+  # Then run any scan or backtest that uses narrative scoring
+
+Enabling Deep Research:
+  export ANTHROPIC_API_KEY=...
+  # Research automatically activates on matches >= 70 composite score
+
+Tests:
+  pytest -q
+  pytest tests/test_research_llm.py -q --tb=short   # specific date-sensitive tests
+
+================================================================================
+6. ENVIRONMENT VARIABLES
+================================================================================
+
+Required/Optional:
+- POLYGON_API_KEY
+- ANTHROPIC_API_KEY (for deep research)
+- X_BEARER_TOKEN or TWITTER_BEARER_TOKEN (for X narrative signal)
+- STOCK_DATA_ROOT (for Modal historical store)
+- CACHE_DIR, LOG_DIR (override defaults)
+
+================================================================================
+7. NEXT STEPS & ROADMAP (Detailed)
+================================================================================
+
+Short Term:
+- Monitor real usage of X signal in daily scans and tune boost weight if needed.
+- Add more high-signal X accounts (earnings-focused, activist, etc.).
+- Expand theme and catalyst catalogs based on emerging narratives.
+- Run full-universe backtests on Modal and analyze suggestions journal.
+
+Medium Term:
+- Build first agentic layer on top of AVAILABLE_TOOLS (e.g., LangGraph planner 
+  that chooses between focused vs broad scans).
+- Add engagement/virality metrics from X posts as additional signal strength.
+- Expose historical store directly in backtest CLI (--use-historical-store).
+- Improve X source with better query construction and rate-limit handling.
+
+- **Modal Download Entry Point Enhancement (Proposed - Option 2)**:
+  Currently the Modal wrapper (`src/modal_app/app.py` → `download` local_entrypoint) 
+  only supports `--symbols`, `--force`, and `--workers`. It does **not** accept 
+  `--sector` or `--days`, unlike the local historical CLI.
+
+  **Proposed change**: Extend the `download` function to also accept:
+    - `--sector "AI" "Chips" "Nuclear" ...` (one or more sectors)
+    - `--days 5500` (or `--lookback-days`)
+
+  When sectors are provided, the entrypoint would internally resolve them into 
+  the full ticker list using `src/config/sectors.tickers_for_sectors()`, then pass 
+  the expanded list to `download_universe_remote`.
+
+  **Why this is valuable**:
+    - Dramatically better UX consistency between local (`python -m src.data.historical download`) 
+      and remote (`modal run ...`) usage.
+    - Users can trigger large sector-based refreshes without manually listing 40+ symbols.
+    - Makes it easy to do commands like:
+        modal run -m src.modal_app.app::download \
+          --sector "AI" "Chips" "Nuclear" "Space" "Power" "Robotics" \
+          --days 5500 \
+          --workers 12 \
+          --force
+    - Still keeps the simple `--symbols` path for quick targeted refreshes.
+
+  **Implementation approach**:
+    - Modify the `download` local_entrypoint signature to accept optional `sector: str` 
+      (comma or space separated) and `days: int`.
+    - If sectors are provided, resolve them to symbols (import the existing resolver 
+      to avoid duplication).
+    - If both `--symbols` and `--sector` are passed, either error or merge them.
+    - Pass the final symbol list + force + workers to the remote function (no change needed there).
+    - Update the docstring and any Makefile targets accordingly.
+
+  **Trade-offs**:
+    - Slightly increases complexity of the Modal entrypoint (from very thin to light logic layer).
+    - Minor risk of drift if sector logic changes (mitigated by importing the canonical function).
+    - Still very small change overall (~15-25 lines).
+
+  This is a high-value, low-risk improvement for daily workflow when working with 
+  Modal from Codespaces.
+
+Long Term:
+- Self-refinement loop that proposes new detectors or weight adjustments based 
+  on backtest + narrative performance.
+- Full intelligence layer that combines scanner output, narrative, research, 
+  and historical performance to generate daily idea packages.
+
+================================================================================
+
+Copy this file and send it to Grok if needed for context.
