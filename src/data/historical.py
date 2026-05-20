@@ -60,10 +60,12 @@ log = get_logger(__name__)
 # Configuration                                                          #
 # ---------------------------------------------------------------------- #
 
-# Default first-pull window for a brand-new symbol. Five years of daily
-# bars is enough warmup for SMA200, two full market cycles, and most
-# narrative backtests we care about.
-DEFAULT_FULL_HISTORY_DAYS = 365 * 5
+# Default first-pull window for a brand-new symbol.
+# 10 years gives multiple full market cycles (2008 GFC, 2020 COVID, 2022 bear,
+# etc.), excellent warmup for long-term features (SMA200, volatility regimes,
+# multi-year momentum), and is still cheap to store/serve as daily bars.
+# Users who want "all available history" can pass --days 20000 (or similar).
+DEFAULT_FULL_HISTORY_DAYS = 365 * 10
 
 # Extra days requested on top of the last-stored gap when updating, so
 # we tolerate weekends, holidays, and any provider delay.
@@ -344,7 +346,7 @@ def download_universe(
     conservative 8; raise it when you have a paid Polygon plan.
 
     If ``lookback_days`` is provided, new symbols (or forced refreshes)
-    will pull that many days of history instead of the default 5-year window.
+    will pull that many days of history instead of the default 10-year window.
     """
     started = time.time()
     started_iso = datetime.now(tz=timezone.utc).isoformat()
@@ -505,7 +507,7 @@ def _cli(argv: list[str] | None = None) -> int:
     dl.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS,
                     help=f"Parallel download workers (default {DEFAULT_MAX_WORKERS}).")
     dl.add_argument("--days", type=int, default=0,
-                    help="Days of history to pull for new or forced symbols (default: 5 years).")
+                    help="Days of history to pull for new or forced symbols (default: 10 years). Pass e.g. 15000 for very deep history.")
     dl.add_argument("--json", action="store_true",
                     help="Print the full report as JSON to stdout.")
 

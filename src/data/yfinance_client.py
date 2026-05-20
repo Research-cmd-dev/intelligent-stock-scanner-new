@@ -5,8 +5,12 @@ Returns daily OHLCV bars in the same canonical format as ``polygon_client``.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pandas as pd
 import yfinance as yf
+
+from src.utils import get_current_utc_date
 
 
 class YFinanceError(RuntimeError):
@@ -14,12 +18,21 @@ class YFinanceError(RuntimeError):
 
 
 def fetch_daily(symbol: str, lookback_days: int = 400) -> pd.DataFrame:
-    """Download daily bars via yfinance."""
-    period = _period_for(lookback_days)
+    """Download daily bars via yfinance using an explicit start date.
+
+    Supports arbitrary lookback (10y, 20y+, or "all available history" for a ticker).
+    When the requested window predates a symbol's listing date, yfinance simply
+    returns whatever data exists — the historical store and backtest layers
+    handle shorter histories gracefully.
+    """
+    end = get_current_utc_date()
+    start = end - timedelta(days=lookback_days)
+
     try:
         df = yf.download(
             symbol,
-            period=period,
+            start=start.isoformat(),
+            end=None,  # fetch up to the most recent available trading day
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -48,17 +61,3 @@ def fetch_daily(symbol: str, lookback_days: int = 400) -> pd.DataFrame:
     df.index.name = "date"
     df.attrs["source"] = "yfinance"
     return df
-
-
-def _period_for(lookback_days: int) -> str:
-    if lookback_days <= 30:
-        return "1mo"
-    if lookback_days <= 90:
-        return "3mo"
-    if lookback_days <= 180:
-        return "6mo"
-    if lookback_days <= 365:
-        return "1y"
-    if lookback_days <= 730:
-        return "2y"
-    return "5y"
