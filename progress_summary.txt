@@ -1,6 +1,6 @@
 === CURRENT PROJECT PROGRESS SUMMARY (Stock Finder Agent) ===
 Date: 2026-05-20
-Last Major Updates: X (Twitter) High-Quality Accounts Integration + UTC Date/Time Standardization
+Last Major Updates: Modal UX Improvements (sector + --days support), --days implementation across local + remote, Expanded backtest entrypoint, Major Sector Universe Expansion (Completed), X integration, UTC standardization
 
 ================================================================================
 1. PROJECT OVERVIEW & MISSION
@@ -116,9 +116,19 @@ We are now using **Grok Build** as the primary coding agent (documented in PROJE
 - Fully wired into Scanner and dashboard.
 
 --- 2.10 Modal Compute Layer (src/modal_app/ + src/data/historical.py) ---
-- Durable historical store designed to work identically locally and on Modal.
-- Remote functions for heavy downloads and backtests.
+- Durable historical store (`stock_data` volume) designed to work identically locally and on Modal.
+- `download_universe_remote` and `run_backtest_remote` functions.
+- Local entrypoints:
+  - `download`: Supports `--symbols`, `--sector` (repeatable), `--days`, `--force`, `--workers`.
+    Sector resolution uses the canonical `tickers_for_sectors()` from `src/config/sectors.py`.
+    `--days` controls lookback for new/forced symbols.
+  - `backtest`: Supports `min_score`, `hold_days`, `cooldown_days`, `evaluate_features`,
+    `feature_horizon`, and `refresh`.
+- Remote jobs automatically warm the cache from the volume so existing scanner/backtest code runs unchanged.
 - AVAILABLE_TOOLS catalog for future agent use.
+- Example usage:
+    modal run -m src.modal_app.app::download --sector AI --sector Chips --days 5500 --force
+    modal run -m src.modal_app.app::backtest --symbols NVDA,PLTR --start 2024-01-01 --end 2026-05-01 --cooldown-days 5 --evaluate-features
 
 --- 2.11 Date/Time Standardization (Critical Recent Work) ---
 - Problem: Mix of date.today() (local) and datetime.now(tz=timezone.utc) caused 
@@ -161,18 +171,45 @@ C. Documentation Migration
    - PROJECT.md now contains Mission, X integration details, Date/Time Handling, 
      and How to Run sections.
 
+D. Modal UX & --days Implementation (Latest)
+   - Extended the Modal `download` local_entrypoint to accept:
+     - `--sector` (repeatable, e.g. `--sector AI --sector Chips`)
+     - `--days` (controls history depth for new/forced symbols)
+   - Wired `--days` end-to-end:
+     - Local CLI (`python -m src.data.historical download --days`)
+     - Modal entrypoint → `download_universe_remote` → `download_universe` → `update_symbol`
+   - `update_symbol` now accepts `lookback_days` and uses it instead of `DEFAULT_FULL_HISTORY_DAYS` when provided.
+   - Expanded the Modal `backtest` entrypoint with `cooldown_days`, `feature_horizon`, and `refresh`.
+   - Fixed a latent `timezone` import bug in `fetcher.py` that surfaced during remote runs.
+   - Result: Much more powerful and consistent remote workflow from Codespaces.
+
+E. Major Thematic Universe Expansion (Completed)
+   - Completed a large-scale refresh of the thematic universe in `src/config/sectors.py`.
+   - Replaced the old 9-sector `SECTORS` structure (with small lists of 6–14 tickers) with a new `SECTOR_TICKERS` dictionary containing 6 focused, high-quality sectors.
+   - Each sector was expanded to contain 35–43 carefully curated, liquid, high-quality tickers with strong thematic relevance.
+   - New sector structure:
+     - AI (~42 names)
+     - Chips (~38 names)
+     - Nuclear (new dedicated sector, ~40 names)
+     - Space (~35 names)
+     - Robotics (~40 names)
+     - Bio (~43 names)
+   - Added `SECTOR_TICKERS` as the primary variable with a backward-compatible `SECTORS = SECTOR_TICKERS` alias.
+   - Updated helper functions (`all_tickers`, `tickers_for_sectors`, `sector_for`) and the module docstring (including new "Editing Guidelines").
+   - This change significantly increases the breadth and depth of the scanner’s coverage while maintaining a high bar for quality.
+
 ================================================================================
 4. CURRENT STATUS
 ================================================================================
 
 - All core layers complete and pushed to main.
-- Latest commit (d13cfcc): "Add optional X (Twitter) high-quality accounts to 
-  narrative layer + centralize UTC date/time handling"
-- Previous major commit: Modal Compute Layer (c1cc9c6)
-- Test suite: All tests passing. The date-sensitive LLM research test is now 
-  robust.
+- Latest commit (5f2f2d2): "Make --days functional and improve Modal download/backtest UX"
+- Includes: sector-based Modal downloads, full --days support (local + remote),
+  expanded backtest entrypoint, timezone bugfix.
+- Test suite: All tests passing.
 - Primary instruction file: PROJECT.md (Grok Build as primary agent)
-- No critical blockers.
+- No critical blockers. Modal remote jobs (download + backtest) are working well.
+- Thematic universe significantly expanded (6 sectors, ~180+ high-quality tickers total).
 
 ================================================================================
 5. HOW TO RUN (DETAILED)
@@ -190,10 +227,20 @@ Backtesting:
   python -m src.backtest.run --symbols NVDA,PLTR --start 2024-01-01
   python -m src.backtest.run --evaluate-features --start 2024-01-01
 
-Modal (requires modal + token):
-  modal run src.modal_app.app::download --symbols NVDA,PLTR
-  modal run src.modal_app.app::backtest --symbols NVDA,PLTR \
+Modal (after `modal token new`):
+  # Basic
+  modal run -m src.modal_app.app::download --symbols NVDA,PLTR
+  modal run -m src.modal_app.app::backtest --symbols NVDA,PLTR \
       --start 2024-01-01 --end 2026-05-01
+
+  # Advanced (new capabilities)
+  modal run -m src.modal_app.app::download \
+      --sector "AI" "Chips" "Nuclear" --days 5500 --workers 12 --force
+
+  modal run -m src.modal_app.app::backtest \
+      --symbols NVDA,PLTR --start 2024-01-01 --end 2026-05-01 \
+      --min-score 65 --hold-days 30 --cooldown-days 5 \
+      --evaluate-features --feature-horizon 10 --refresh false
 
 Enabling X Signal:
   export X_BEARER_TOKEN=your_token   # or TWITTER_BEARER_TOKEN
@@ -226,7 +273,9 @@ Short Term:
 - Monitor real usage of X signal in daily scans and tune boost weight if needed.
 - Add more high-signal X accounts (earnings-focused, activist, etc.).
 - Expand theme and catalyst catalogs based on emerging narratives.
-- Run full-universe backtests on Modal and analyze suggestions journal.
+- Run larger sector-level backtests on Modal using the newly expanded universe and review the suggestions journal.
+- Polish Modal workflow (Makefile helpers, easier report retrieval, better progress output).
+- Review and potentially refine the new larger sector lists based on backtest performance and narrative signal quality.
 
 Medium Term:
 - Build first agentic layer on top of AVAILABLE_TOOLS (e.g., LangGraph planner 
@@ -235,10 +284,7 @@ Medium Term:
 - Expose historical store directly in backtest CLI (--use-historical-store).
 - Improve X source with better query construction and rate-limit handling.
 
-- **Modal Download Entry Point Enhancement (Proposed - Option 2)**:
-  Currently the Modal wrapper (`src/modal_app/app.py` → `download` local_entrypoint) 
-  only supports `--symbols`, `--force`, and `--workers`. It does **not** accept 
-  `--sector` or `--days`, unlike the local historical CLI.
+- Modal download and backtest entrypoints significantly enhanced (sector support, --days, expanded parameters) — now in active use.
 
   **Proposed change**: Extend the `download` function to also accept:
     - `--sector "AI" "Chips" "Nuclear" ...` (one or more sectors)
