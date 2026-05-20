@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.config import get_settings
-from src.utils import get_logger
+from src.utils import get_current_utc_date, get_logger
 
 from .base import NewsItem
 
@@ -26,7 +26,7 @@ log = get_logger(__name__)
 
 
 def _today() -> str:
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    return get_current_utc_date().strftime("%Y-%m-%d")
 
 
 def _cache_dir() -> Path:

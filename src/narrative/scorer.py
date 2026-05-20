@@ -150,8 +150,8 @@ class NarrativeScorer:
         item_themes = [detect_themes(_full_text(i)) for i in items]
         item_catalysts = [detect_catalysts(_full_text(i)) for i in items]
         boosts = [
-            _item_boost(themes=th, catalysts=cat)
-            for th, cat in zip(item_themes, item_catalysts)
+            _item_boost(themes=th, catalysts=cat, provider=i.provider)
+            for i, th, cat in zip(items, item_themes, item_catalysts)
         ]
 
         polarity = _aggregate_polarity(
@@ -298,16 +298,34 @@ def _aggregate_polarity(
     return weighted_sum / weight_sum
 
 
-def _item_boost(*, themes: list[ThemeTag], catalysts: list[CatalystTag]) -> float:
-    """Combine theme + catalyst tags into a single weight multiplier."""
-    if not themes and not catalysts:
-        return 0.0
-    theme_strength = max((t.relevance for t in themes), default=0.0)
-    catalyst_strength = max((c.strength for c in catalysts), default=0.0)
-    return (
-        THEME_WEIGHT_BOOST * theme_strength
-        + CATALYST_WEIGHT_BOOST * catalyst_strength
-    )
+# Small extra weight given to posts from the curated high-quality X accounts.
+# This acts as a moderate popularity / momentum signal on top of any
+# theme or catalyst match. X is deliberately a booster, not the primary driver.
+_X_MOMENTUM_BOOST = 0.12
+
+
+def _item_boost(
+    *, themes: list[ThemeTag], catalysts: list[CatalystTag], provider: str = ""
+) -> float:
+    """Combine theme + catalyst tags into a single weight multiplier.
+
+    Posts from the curated X accounts receive a modest additional boost
+    (when they have any theme or catalyst signal) to reflect their value
+    as real-time momentum indicators from high-signal voices.
+    """
+    base = 0.0
+    if themes or catalysts:
+        theme_strength = max((t.relevance for t in themes), default=0.0)
+        catalyst_strength = max((c.strength for c in catalysts), default=0.0)
+        base = (
+            THEME_WEIGHT_BOOST * theme_strength
+            + CATALYST_WEIGHT_BOOST * catalyst_strength
+        )
+
+    if provider == "x" and (themes or catalysts):
+        base += _X_MOMENTUM_BOOST
+
+    return base
 
 
 def _full_text(item: NewsItem) -> str:

@@ -227,7 +227,10 @@ def test_request_shape_matches_prompt_caching_contract() -> None:
     # live here, not in the cached system prefix.
     user_text = call["messages"][0]["content"]
     assert "NVDA" in user_text
-    assert "2026-05-19" in user_text
+    # Date must be present in the volatile user message (for prompt caching contract)
+    # but we do not hardcode the exact day to avoid clock-dependent test failures.
+    import re
+    assert re.search(r"\d{4}-\d{2}-\d{2}", user_text)
     assert "supply pact with sovereign AI fund" in user_text
 
     # JSON-schema output forces a parseable response shape.

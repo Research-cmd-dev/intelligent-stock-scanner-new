@@ -84,27 +84,29 @@ tmux source-file ~/.tmux.conf
 
 ---
 
-## 2026-05-20 — Code Review + Test Execution Session
+We need to fix date/timezone inconsistencies across the codebase.
 
-**Context**: Full repository code review performed via dedicated reviewer subagent. As part of the review, terminal commands were executed (`make test` / `pytest -q`).
+The current mix of `datetime.now(tz=timezone.utc)` and `date.today()` causes unreliable behavior (especially in cloud environments like Codespaces).
 
-**Terminal output captured**:
-- Command: `python -m pytest -q --tb=no` (equivalent to `make test`)
-- Result: **129 passed, 1 failed, 1 warning** (ran in ~20 seconds)
-- The single failure was unrelated to new code (Modal/historical layer) but highlighted a recurring terminal/cloud date issue.
+Please do the following:
 
-**Failure details**:
-- Test: `tests/test_research_llm.py::test_request_shape_matches_prompt_caching_contract`
-- Root cause: Hard-coded assertion `assert "2026-05-19" in user_text` vs. actual `datetime.now(tz=utc)` producing "2026-05-20" in the Codespace environment.
+1. Create a small utility function in `src/utils/time.py` (or a suitable location) with the following functions:
+   - `get_current_utc_datetime()` → returns current datetime in UTC
+   - `get_current_utc_date()` → returns current date in UTC
 
-**New systemic finding surfaced during review** (Issue 4 in code review):
-- Date/timezone inconsistency across the data layer:
-- `src/data/historical.py:276` uses `datetime.now(tz=timezone.utc).date()`
-- `src/data/polygon_client.py:46` uses `date.today()` (local TZ)
-- Similar patterns in `fetcher.py` and yfinance path
-- This affects cache freshness, "is up-to-date" checks, incremental downloads, and news cache keys — especially noticeable in cloud terminals (Codespaces) whose TZ may differ from the developer's local machine or UTC.
+2. Update the following files to use the new utility functions instead of direct date/time calls:
+   - `src/data/historical.py`
+   - `src/data/polygon_client.py`
+   - `src/data/fetcher.py`
+   - Any yfinance-related date handling
 
-**Relevance to clipboard workaround**:
-Long-running terminal operations (reviews, full test suites, historical downloads, backtests) frequently produce output the user wants to preserve and copy. The date/TZ fragility also means that commands run in this terminal environment can behave differently than on a local machine, making reliable capture via the editor (grok-outputs/) even more important.
+3. Fix the failing test in `tests/test_research_llm.py`:
+   - Remove or update the hardcoded date assertion (`assert "2026-05-19" in user_text`).
 
-**Action taken**: This section was added per the standing project memory rule to keep the workaround file current with any new terminal execution output or environment-specific behaviors discovered.
+4. Ensure that cache freshness checks, incremental download logic, and news cache keys use the new UTC-based functions.
+
+5. Add a short comment in PROJECT.md under a new "Date/Time Handling" section explaining that we standardize on UTC for reliability across environments.
+
+Keep the changes minimal and focused. Prioritize consistency and robustness.
+
+Begin now.

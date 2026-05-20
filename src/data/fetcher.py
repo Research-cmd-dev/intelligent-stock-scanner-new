@@ -8,13 +8,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from src.config import get_settings
-from src.utils import get_logger
+from src.utils import get_current_utc_date, get_logger
 
 from . import polygon_client, yfinance_client
 
@@ -29,7 +29,7 @@ def _cache_is_fresh(path: Path) -> bool:
     if not path.exists():
         return False
     mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).date()
-    return mtime == datetime.now(tz=timezone.utc).date()
+    return mtime == get_current_utc_date()
 
 
 def fetch_ohlcv(

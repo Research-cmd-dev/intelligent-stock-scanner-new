@@ -40,6 +40,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
+
+from src.utils import get_current_utc_date
 from pathlib import Path
 from typing import Iterable
 
@@ -273,7 +275,7 @@ def update_symbol(symbol: str, *, force: bool = False) -> UpdateResult:
     existing = None if force else (load_history(sym) if path.exists() else None)
     last = None if existing is None or existing.empty else existing.index.max()
 
-    today = pd.Timestamp(datetime.now(tz=timezone.utc).date())
+    today = pd.Timestamp(get_current_utc_date())
     if last is not None and last >= today:
         # Already up to date through today; nothing to do.
         return UpdateResult(

@@ -6,13 +6,14 @@ Returns daily OHLCV bars as a DataFrame indexed by tz-naive date with columns
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pandas as pd
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
 from src.config import get_settings
+from src.utils import get_current_utc_date
 
 
 class PolygonError(RuntimeError):
@@ -43,7 +44,7 @@ def fetch_daily(symbol: str, lookback_days: int = 400) -> pd.DataFrame:
     if not settings.has_polygon:
         raise PolygonError("POLYGON_API_KEY not set")
 
-    end = date.today()
+    end = get_current_utc_date()
     start = end - timedelta(days=lookback_days)
     url = (
         f"{_BASE}/v2/aggs/ticker/{symbol.upper()}"

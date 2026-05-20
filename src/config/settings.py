@@ -15,6 +15,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class Settings:
     polygon_api_key: str | None
+    x_bearer_token: str | None
     cache_dir: Path
     log_dir: Path
     log_level: str
@@ -23,6 +24,10 @@ class Settings:
     @property
     def has_polygon(self) -> bool:
         return bool(self.polygon_api_key)
+
+    @property
+    def has_x(self) -> bool:
+        return bool(self.x_bearer_token)
 
 
 @lru_cache(maxsize=1)
@@ -36,6 +41,7 @@ def get_settings() -> Settings:
 
     return Settings(
         polygon_api_key=os.getenv("POLYGON_API_KEY") or None,
+        x_bearer_token=os.getenv("X_BEARER_TOKEN") or os.getenv("TWITTER_BEARER_TOKEN") or None,
         cache_dir=cache_dir,
         log_dir=log_dir,
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

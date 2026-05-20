@@ -31,3 +31,27 @@ We are now using **Grok Build** as the primary coding agent.
 - Dashboard: `streamlit run src/dashboard/app.py`
 - Historical data download: `python -m src.data.historical download`
 - Backtest: `python -m src.backtest.run`
+
+### X (Twitter) Posts in the Narrative Layer
+
+The narrative scorer can optionally incorporate recent posts from a curated list of high-quality X accounts (real-time market news, macro voices, AI/tech infrastructure, technical analysis, and sector-specific handles).
+
+- These posts act as a **moderate popularity / momentum booster**, not the primary signal.
+- When an X post from the list mentions a ticker **and** aligns with recognized themes or catalysts, it receives a small additional weight in the composite narrative score.
+- The feature is **completely optional**. If no `X_BEARER_TOKEN` (or `TWITTER_BEARER_TOKEN`) is present in the environment, the X source is silently skipped and the rest of the system behaves exactly as before.
+- Posts are fetched via the X API v2 recent search endpoint, cached daily alongside other news, and deduplicated with Polygon/yfinance items.
+
+**Curated account list**: Defined in `src/narrative/sources/x_accounts.py`.
+
+**Adding or removing accounts**: Edit the `HIGH_QUALITY_X_ACCOUNTS` list in that file. Keep the list focused on high-signal, relatively low-noise accounts. Changes take effect on the next narrative scoring run.
+
+To enable: set `X_BEARER_TOKEN=...` (or `TWITTER_BEARER_TOKEN`) in your `.env`. The source will be automatically included via `default_sources()`.
+
+### Date/Time Handling
+
+All date and "today" calculations in the project (cache freshness, incremental downloads, news cache keys, historical data logic, etc.) must go through the centralized UTC helpers in `src/utils/time.py`:
+
+- `get_current_utc_datetime()`
+- `get_current_utc_date()`
+
+This eliminates flakiness from `date.today()` (local timezone) vs `datetime.now(tz=timezone.utc)` and ensures consistent behavior on developer machines, CI, and cloud environments such as GitHub Codespaces.
