@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -48,8 +48,20 @@ def fetch_ohlcv(
     if use_cache and force_source is None and _cache_is_fresh(path):
         try:
             df = pd.read_parquet(path)
-            log.debug("cache hit %s", symbol)
-            return df
+            # Coverage check: mtime==today is not enough. A short window cached
+            # earlier today must not satisfy a long lookback request.
+            if not df.empty:
+                today = get_current_utc_date()
+                # Fudge factor approximates trading days vs calendar days (~0.7).
+                required_start = today - timedelta(days=max(1, int(lookback_days * 0.7)))
+                if df.index.min().date() <= required_start:
+                    log.debug("cache hit %s", symbol)
+                    return df
+                log.info(
+                    "cache coverage insufficient for %s (requested ~%d days, cached from %s); refetching",
+                    symbol, lookback_days, df.index.min().date(),
+                )
+            # fall through to source fetch on insufficient coverage or empty df
         except Exception as exc:  # pragma: no cover - corrupt cache
             log.warning("cache read failed for %s: %s", symbol, exc)
 
