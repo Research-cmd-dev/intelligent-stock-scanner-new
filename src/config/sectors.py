@@ -68,7 +68,7 @@ SECTOR_TICKERS: dict[str, list[str]] = {
         "SPWR", "JKS", "CSIQ", "ARRY", "SHLS"
     ],
     "Quantum": [
-        "IONQ", "QBTS", "RGTI", "QUBT", "ARQQ", "QMCO", "PXLW", "CRDO", "ATOM"
+        "IONQ", "QBTS", "RGTI", "QUBT", "ARQQ", "QMCO"
     ],
     "Defense": [
         "LMT", "RTX", "NOC", "GD", "BA", "LHX", "HII", "TDG", "HEI", "KTOS",

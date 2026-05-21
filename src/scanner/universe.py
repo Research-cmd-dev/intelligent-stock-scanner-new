@@ -45,7 +45,7 @@ THEME_ETFS: dict[str, list[str]] = {
     "Batteries": ["LIT", "BATT"],
     "Defense":   ["ITA", "XAR"],
     "Robotics":  ["BOTZ", "ROBO"],
-    "Quantum":   ["IONQ", "QBTS", "RGTI"],
+    "Quantum":   ["QTUM"],
     "Clean":     ["ICLN", "TAN"],
 }
 
