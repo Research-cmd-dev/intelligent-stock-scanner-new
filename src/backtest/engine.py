@@ -289,7 +289,7 @@ def _refetch_frames(
     out: dict[str, pd.DataFrame] = {}
     for symbol in sorted({s.symbol for s in signals}):
         try:
-            out[symbol] = fetch_ohlcv(symbol, lookback_days=lookback)
+            out[symbol] = fetch_ohlcv(symbol, lookback_days=lookback, end_date=end_ts.date())
         except Exception as exc:
             log.warning("fetch failed for %s during simulation: %s", symbol, exc)
     return out

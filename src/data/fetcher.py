@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -38,11 +38,14 @@ def fetch_ohlcv(
     *,
     use_cache: bool = True,
     force_source: str | None = None,
+    end_date: date | None = None,
 ) -> pd.DataFrame:
     """Fetch daily OHLCV for ``symbol``.
 
     ``force_source`` accepts ``"polygon"`` or ``"yfinance"`` to bypass the
     automatic preference; otherwise Polygon is tried first.
+    When ``end_date`` is given, both the cache coverage check and the
+    underlying client fetches are anchored to that date (for backtests).
     """
     path = _cache_path(symbol)
     if use_cache and force_source is None and _cache_is_fresh(path):
@@ -51,9 +54,9 @@ def fetch_ohlcv(
             # Coverage check: mtime==today is not enough. A short window cached
             # earlier today must not satisfy a long lookback request.
             if not df.empty:
-                today = get_current_utc_date()
-                # Fudge factor approximates trading days vs calendar days (~0.7).
-                required_start = today - timedelta(days=max(1, int(lookback_days * 0.7)))
+                # When end_date is pinned (backtest), compare against it; else today.
+                anchor = end_date or get_current_utc_date()
+                required_start = anchor - timedelta(days=max(1, int(lookback_days * 0.7)))
                 if df.index.min().date() <= required_start:
                     log.debug("cache hit %s", symbol)
                     return df
@@ -65,7 +68,7 @@ def fetch_ohlcv(
         except Exception as exc:  # pragma: no cover - corrupt cache
             log.warning("cache read failed for %s: %s", symbol, exc)
 
-    df = _fetch_from_source(symbol, lookback_days, force_source)
+    df = _fetch_from_source(symbol, lookback_days, force_source, end_date=end_date)
 
     try:
         df.to_parquet(path)
@@ -76,7 +79,11 @@ def fetch_ohlcv(
 
 
 def _fetch_from_source(
-    symbol: str, lookback_days: int, force_source: str | None
+    symbol: str,
+    lookback_days: int,
+    force_source: str | None,
+    *,
+    end_date: date | None = None,
 ) -> pd.DataFrame:
     settings = get_settings()
     sources: list[str]
@@ -91,8 +98,8 @@ def _fetch_from_source(
     for source in sources:
         try:
             if source == "polygon":
-                return polygon_client.fetch_daily(symbol, lookback_days)
-            return yfinance_client.fetch_daily(symbol, lookback_days)
+                return polygon_client.fetch_daily(symbol, lookback_days, end_date=end_date)
+            return yfinance_client.fetch_daily(symbol, lookback_days, end_date=end_date)
         except Exception as exc:
             log.info("%s fetch failed for %s: %s", source, symbol, exc)
             last_error = exc

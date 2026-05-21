@@ -303,3 +303,46 @@ def test_clean_run_emits_no_suggestions():
     report = _make_report(trades)
     suggestions = suggest_improvements(report)
     assert suggestions == []
+
+
+# ---------------------------------------------------------------------- #
+# Task 2: end_date plumbing verification
+# ---------------------------------------------------------------------- #
+
+
+def test_refetch_and_generate_signals_pass_end_date_to_fetcher(monkeypatch):
+    """_refetch_frames / generate_signals must forward a historical end_date.
+
+    Acceptance for Task 2: call with a date 6 months in the past; the stub
+    must receive end_date=that_past_date (not today).
+    """
+    from datetime import date, timedelta
+
+    from src.backtest.signals import generate_signals
+    from src.data import fetcher as fetcher_mod
+
+    past_end = date(2025, 1, 15)  # ~6 months before a typical "today" in the test env
+    captured: dict[str, object] = {}
+
+    def _stub_fetch(symbol: str, lookback_days: int = 400, **kwargs):
+        captured["end_date"] = kwargs.get("end_date")
+        captured["symbol"] = symbol
+        # Return a minimal but sufficient frame so has_min_history passes
+        # and we don't blow up in add_indicators / scanner.
+        idx = pd.date_range(end=pd.Timestamp(past_end), periods=300, freq="B")
+        return pd.DataFrame(
+            {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.5, "volume": 1000000},
+            index=pd.DatetimeIndex(idx, name="date"),
+        )
+
+    # Patch the name as imported inside signals.py (from src.data import fetch_ohlcv)
+    # so the call site receives the stub with the end_date kwarg.
+    monkeypatch.setattr("src.backtest.signals.fetch_ohlcv", _stub_fetch)
+
+    # generate_signals will call fetch_ohlcv with the computed lookback + end_date
+    _ = generate_signals(["NVDA"], start="2024-07-01", end=past_end, min_score=0.0)
+
+    assert captured.get("end_date") == past_end, (
+        f"expected end_date={past_end}, got {captured.get('end_date')}"
+    )
+    assert captured.get("symbol") == "NVDA"

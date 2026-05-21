@@ -5,7 +5,7 @@ Returns daily OHLCV bars in the same canonical format as ``polygon_client``.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -17,22 +17,26 @@ class YFinanceError(RuntimeError):
     pass
 
 
-def fetch_daily(symbol: str, lookback_days: int = 400) -> pd.DataFrame:
+def fetch_daily(
+    symbol: str, lookback_days: int = 400, *, end_date: date | None = None
+) -> pd.DataFrame:
     """Download daily bars via yfinance using an explicit start date.
 
-    Supports arbitrary lookback (10y, 20y+, or "all available history" for a ticker).
-    When the requested window predates a symbol's listing date, yfinance simply
-    returns whatever data exists — the historical store and backtest layers
-    handle shorter histories gracefully.
+    If ``end_date`` is provided, the right edge is anchored to that date
+    (inclusive) for reproducible backtests. When None, defaults to today
+    (live behavior).
     """
-    end = get_current_utc_date()
+    end = end_date or get_current_utc_date()
     start = end - timedelta(days=lookback_days)
+
+    # yfinance 'end' param is exclusive, so add one day to include end_date
+    yf_end = (end + timedelta(days=1)).isoformat() if end_date is not None else None
 
     try:
         df = yf.download(
             symbol,
             start=start.isoformat(),
-            end=None,  # fetch up to the most recent available trading day
+            end=yf_end,  # None means "up to most recent"
             interval="1d",
             auto_adjust=True,
             progress=False,

@@ -6,7 +6,7 @@ Returns daily OHLCV bars as a DataFrame indexed by tz-naive date with columns
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pandas as pd
 import requests
@@ -38,13 +38,20 @@ def _get(url: str, params: dict) -> dict:
     return resp.json()
 
 
-def fetch_daily(symbol: str, lookback_days: int = 400) -> pd.DataFrame:
-    """Daily OHLCV for ``symbol`` over the last ``lookback_days`` calendar days."""
+def fetch_daily(
+    symbol: str, lookback_days: int = 400, *, end_date: date | None = None
+) -> pd.DataFrame:
+    """Daily OHLCV for ``symbol`` over the last ``lookback_days`` calendar days.
+
+    If ``end_date`` is provided, the right edge is anchored to that date
+    (for reproducible backtests with a historical ``end``). When None,
+    defaults to today (UTC) to preserve live behavior.
+    """
     settings = get_settings()
     if not settings.has_polygon:
         raise PolygonError("POLYGON_API_KEY not set")
 
-    end = get_current_utc_date()
+    end = end_date or get_current_utc_date()
     start = end - timedelta(days=lookback_days)
     url = (
         f"{_BASE}/v2/aggs/ticker/{symbol.upper()}"

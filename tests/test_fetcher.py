@@ -60,7 +60,7 @@ def test_cache_rejected_on_insufficient_coverage(monkeypatch, isolated_cache):
     # Patch the source clients to record calls and return a plausible long frame.
     calls = {"polygon": 0, "yfinance": 0}
 
-    def _fake_polygon(symbol: str, lookback_days: int):
+    def _fake_polygon(symbol: str, lookback_days: int, *, end_date=None):
         calls["polygon"] += 1
         # Return a longer frame (simulated)
         today = get_current_utc_date()
@@ -70,7 +70,7 @@ def test_cache_rejected_on_insufficient_coverage(monkeypatch, isolated_cache):
             index=pd.DatetimeIndex(long_dates, name="date"),
         )
 
-    def _fake_yfinance(symbol: str, lookback_days: int):
+    def _fake_yfinance(symbol: str, lookback_days: int, *, end_date=None):
         calls["yfinance"] += 1
         today = get_current_utc_date()
         long_dates = pd.date_range(end=pd.Timestamp(today), periods=800, freq="B")

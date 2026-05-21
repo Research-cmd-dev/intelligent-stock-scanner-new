@@ -95,7 +95,7 @@ def generate_signals(
 
     for symbol in sorted({s.upper() for s in symbols}):
         try:
-            raw = fetch_ohlcv(symbol, lookback_days=fetch_lookback)
+            raw = fetch_ohlcv(symbol, lookback_days=fetch_lookback, end_date=end_ts.date())
         except Exception as exc:
             log.warning("fetch failed for %s: %s", symbol, exc)
             continue
