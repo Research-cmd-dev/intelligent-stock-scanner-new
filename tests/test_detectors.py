@@ -90,12 +90,18 @@ def test_trend_rider_treats_3pct_as_real_in_low_atr() -> None:
 def test_all_tickers_no_duplicates_and_no_etf_tickers() -> None:
     """all_tickers() must be deduplicated and must never contain theme ETFs."""
     from src.config.sectors import all_tickers
+    from src.scanner.universe import THEME_ETFS, SPDR_SECTOR_ETFS, BROAD_MARKET
 
     tickers = all_tickers()
-    assert len(tickers) == len(set(tickers)), "duplicates present in all_tickers()"
-    # Known theme ETFs that must live only in universe.THEME_ETFS, never in SECTOR_TICKERS
-    forbidden = {"ARKX", "ARKQ", "ARKF", "ARKG", "UFO", "SPY", "QQQ", "IWM", "DIA"}
-    assert not (set(tickers) & forbidden), f"ETFs leaked into stock tickers: {set(tickers) & forbidden}"
+    assert len(tickers) == len(set(tickers)), "duplicates in all_tickers()"
+
+    all_etfs = (
+        {t for v in THEME_ETFS.values() for t in v}
+        | set(SPDR_SECTOR_ETFS)
+        | set(BROAD_MARKET)
+    )
+    leak = set(tickers) & all_etfs
+    assert not leak, f"ETFs leaked into stock tickers: {sorted(leak)}"
 
 
 def test_readme_sectors_are_present_in_config() -> None:

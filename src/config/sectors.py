@@ -72,12 +72,12 @@ SECTOR_TICKERS: dict[str, list[str]] = {
     ],
     "Defense": [
         "LMT", "RTX", "NOC", "GD", "BA", "LHX", "HII", "TDG", "HEI", "KTOS",
-        "AVAV", "CW", "DRS", "ESLT", "HXL", "BWXT", "TXT", "SPR", "MOG.A",
-        "TDY", "ITA", "XAR"
+        "AVAV", "CW", "DRS", "ESLT", "HXL", "BWXT", "TXT", "SPR", "MOG-A",
+        "TDY"
     ],
     "Nuclear": [
         "CCJ", "UEC", "UUUU", "NXE", "DNN", "BWXT", "LEU", "OKLO", "SMR",
-        "NLR", "CEG", "VST", "TLN"
+        "CEG", "VST", "TLN"
     ],
     "Space": [
         "RKLB", "ASTS", "LUNR", "RDW", "SPCE", "KTOS", "NOC", "LMT", "BA", "RTX",
