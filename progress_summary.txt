@@ -392,3 +392,32 @@ Backtest complete: /workspaces/intelligent-stock-scanner-new/logs/backtest_20260
 
 ================================================================================
 
+CORRECTIONS PASS (2026-05-21)
+================================================================================
+
+$ python -m pytest -q --tb=no
+.....................................................................    [100%]
+=========================== short test summary info ============================
+141 passed, 1 warning in 2.67s
+
+$ python -m src.backtest.run --symbols NVDA,AMD,PLTR --start 2024-01-01 --end 2025-12-31 --min-score 60
+2026-05-21 03:10:39 INFO    __main__ | running backtest: 3 symbols, 2024-01-01 → 2025-12-31, min_score=60, hold_days=20, features=False
+2026-05-21 03:10:41 INFO    src.backtest.signals | generated 17 signals across 3 symbols
+2026-05-21 03:10:41 INFO    src.backtest.report | wrote backtest report: /workspaces/intelligent-stock-scanner-new/logs/backtest_20260521_031041.md
+2026-05-21 03:10:41 INFO    src.backtest.report | appended 1 suggestion(s) to /workspaces/intelligent-stock-scanner-new/logs/suggestions.md
+
+Backtest complete: /workspaces/intelligent-stock-scanner-new/logs/backtest_20260521_031041.md
+  signals: 17  trades: 17
+  win rate: 29%   mean return: -2.39%   profit factor: 0.59
+  max drawdown: -91.27%   sharpe-like: -0.75
+
+1 suggestion(s):
+  [MEDIUM] coverage: Sample size is thin (17 trades).
+
+Corrections addressed:
+- Task 1: Brittle exact-name assertion in modal tool test
+- Task 2/3: Strengthened ETF-leak invariant + removed leaking ETFs from Defense/Nuclear + fixed MOG.A
+- Task 4: Cleaned Quantum sector and corrected THEME_ETFS entry
+
+================================================================================
+
