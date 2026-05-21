@@ -33,6 +33,24 @@ _BASE = "https://api.twitter.com/2"
 _MAX_RESULTS_PER_CALL = 10
 _MAX_ACCOUNTS_PER_QUERY = 8  # keep individual queries under X length limits
 
+# Short tickers that are also common English words. Using only the cashtag
+# ($TICKER) for these avoids matching everyday language ("on the call",
+# "arm of the company", "in the news", "cr earnings", "st guidance", etc.)
+# in the free-text portion of tweets. NVDA and most others are safe for the
+# bare OR cashtag form.
+AMBIGUOUS_TICKERS: frozenset[str] = frozenset({
+    "ON", "ARM", "J", "CR", "ST", "MP", "BA", "T", "D", "V", "MA", "IT",
+    "OR", "IF", "BY", "AT", "IN", "BE", "DO", "GO", "SO", "UP", "NO",
+})
+
+
+def _symbol_clause(symbol: str) -> str:
+    """Build the X query clause for a ticker, preferring cashtag for ambiguous ones."""
+    sym = symbol.upper()
+    if sym in AMBIGUOUS_TICKERS:
+        return f"${sym}"
+    return f"({sym} OR ${sym})"
+
 
 class XAccountsNewsSource:
     """X/Twitter recent posts from curated high-quality accounts."""
@@ -86,7 +104,7 @@ class XAccountsNewsSource:
             return []
 
         accounts_clause = " OR ".join(f"from:{u}" for u in accounts)
-        symbol_clause = f"({symbol} OR ${symbol})"
+        symbol_clause = _symbol_clause(symbol)
         query = f"({accounts_clause}) {symbol_clause} -is:retweet"
 
         # Look back ~7 days (X recent search window on most tiers)
@@ -201,3 +219,19 @@ def _parse_iso(ts: str | None) -> datetime:
 
 def _chunk(seq: list[str], size: int) -> list[list[str]]:
     return [seq[i : i + size] for i in range(0, len(seq), size)]
+
+
+# ---------------------------------------------------------------------- #
+# Task 5: unit test for the private clause builder (runs under pytest)
+# ---------------------------------------------------------------------- #
+
+
+def test_symbol_clause_prefers_cashtag_for_ambiguous():
+    """ARM (ambiguous English word) must use only $ARM; NVDA uses both forms."""
+    assert _symbol_clause("ARM") == "$ARM"
+    assert _symbol_clause("arm") == "$ARM"
+    assert _symbol_clause("NVDA") == "(NVDA OR $NVDA)"
+    assert "NVDA OR $NVDA" in _symbol_clause("NVDA")
+    # sanity for a couple more from the set
+    assert _symbol_clause("ON") == "$ON"
+    assert _symbol_clause("BA") == "$BA"
