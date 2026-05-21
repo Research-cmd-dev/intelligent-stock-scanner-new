@@ -30,10 +30,13 @@ We are now using **Grok Build** as the primary coding agent.
 ### How to Run
 - Dashboard: `streamlit run src/dashboard/app.py`
 - Historical data download: `python -m src.data.historical download`
+    (full thematic sectors now include Batteries/Quantum/Defense/Nuclear for doc parity)
 - Backtest: `python -m src.backtest.run`
 - Modal remote operations (after `modal token new`):
     - `modal run -m src.modal_app.app::download --symbols NVDA,PLTR`
     - Sector-based: `modal run -m src.modal_app.app::download --sector AI --sector Chips --days 5500 --force` (now supported)
+    - Clear all historical data on Modal (start fresh with a new stock list): `modal run -m src.modal_app.app::clear_historical`
+    - Local equivalent (respects STOCK_DATA_ROOT): `python -m src.data.historical clear`
 
 ### X (Twitter) Posts in the Narrative Layer
 

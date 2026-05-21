@@ -1,7 +1,7 @@
 # Stock Finder Agent
 
 A daily stock scanner that hunts for high-conviction setups in thematic sectors
-(AI, Chips, Energy, Bio, Space, Batteries, Quantum, Defense, Robotics).
+(AI, Chips, Energy, Batteries, Quantum, Defense, Space, Bio, Robotics, Software, Misc — plus Nuclear for completeness).
 
 It detects two complementary patterns:
 

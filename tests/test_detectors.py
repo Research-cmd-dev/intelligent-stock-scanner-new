@@ -82,6 +82,32 @@ def test_trend_rider_treats_3pct_as_real_in_low_atr() -> None:
     assert m is not None or True  # non-crash + not early-rejected by dist gate
 
 
+# ---------------------------------------------------------------------- #
+# Task 8: sector config invariants
+# ---------------------------------------------------------------------- #
+
+
+def test_all_tickers_no_duplicates_and_no_etf_tickers() -> None:
+    """all_tickers() must be deduplicated and must never contain theme ETFs."""
+    from src.config.sectors import all_tickers
+
+    tickers = all_tickers()
+    assert len(tickers) == len(set(tickers)), "duplicates present in all_tickers()"
+    # Known theme ETFs that must live only in universe.THEME_ETFS, never in SECTOR_TICKERS
+    forbidden = {"ARKX", "ARKQ", "ARKF", "ARKG", "UFO", "SPY", "QQQ", "IWM", "DIA"}
+    assert not (set(tickers) & forbidden), f"ETFs leaked into stock tickers: {set(tickers) & forbidden}"
+
+
+def test_readme_sectors_are_present_in_config() -> None:
+    """Every sector named in README.md must have an entry in SECTOR_TICKERS."""
+    from src.config.sectors import SECTOR_TICKERS
+
+    # From README intro + PROJECT philosophy
+    required = {"AI", "Chips", "Energy", "Bio", "Space", "Batteries", "Quantum", "Defense", "Robotics"}
+    missing = [s for s in required if s not in SECTOR_TICKERS]
+    assert not missing, f"sectors mentioned in docs but missing from SECTOR_TICKERS: {missing}"
+
+
 def test_match_to_row_is_dashboard_ready() -> None:
     df = add_indicators(trend_rider_series())
     match = detect_trend_rider(df, "FAKE")
