@@ -10,7 +10,7 @@ upstream and meaningfully more accurate than word counts.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
@@ -120,6 +120,7 @@ def _extract_sentiment(insights: list[dict], symbol: str) -> float | None:
 
 def _parse_iso(s: str) -> datetime:
     # Polygon emits RFC3339 with a trailing Z; fromisoformat needs +00:00.
+    # NewsItem.published_utc is always tz-aware by contract (see x_news.py too).
     if not s:
-        return datetime.fromtimestamp(0)
+        return datetime(1970, 1, 1, tzinfo=timezone.utc)
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
