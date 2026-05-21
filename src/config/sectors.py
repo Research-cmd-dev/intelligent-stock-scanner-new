@@ -82,7 +82,7 @@ SECTOR_TICKERS: dict[str, list[str]] = {
     "Space": [
         "RKLB", "ASTS", "LUNR", "RDW", "SPCE", "KTOS", "NOC", "LMT", "BA", "RTX",
         "GD", "TDY", "HON", "LHX", "HII", "PL", "SPIR", "SIDU",
-        "MNTS", "KSCP", "SATL", "IONQ", "QBTS", "RGTI", "QTUM", "MDA"
+        "MNTS", "KSCP", "SATL", "IONQ", "QBTS", "RGTI", "MDA"
     ],
     "Robotics": [
         "ISRG", "TER", "PATH", "SYM", "BDTX", "NOVT",
