@@ -25,8 +25,9 @@ from .lexicon import (
 )
 from .sources.base import NewsItem
 
-# Token boundary: alphanumerics + hyphens; everything else splits.
-_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9'\-]*")
+# Token boundary: after _normalize has turned hyphens into spaces, we only
+# need alphanumerics + apostrophes for possessives.
+_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9']*")
 
 
 class Sentiment(Protocol):
@@ -63,9 +64,11 @@ class LexiconSentiment:
         text = _normalize(f"{item.title}. {item.summary}")
         if not text:
             return 0.0
-        tokens = set(_TOKEN_RE.findall(text))
-        pos = len(tokens & POSITIVE_WORDS) + _count_phrases(text, POSITIVE_PHRASES)
-        neg = len(tokens & NEGATIVE_WORDS) + _count_phrases(text, NEGATIVE_PHRASES)
+        # Linear count (with multiplicity) so "rally rally rally" > "rally".
+        # Matches the linear treatment already used for phrases.
+        tokens = _TOKEN_RE.findall(text)
+        pos = sum(1 for t in tokens if t in POSITIVE_WORDS) + _count_phrases(text, POSITIVE_PHRASES)
+        neg = sum(1 for t in tokens if t in NEGATIVE_WORDS) + _count_phrases(text, NEGATIVE_PHRASES)
         if pos == 0 and neg == 0:
             return 0.0
         return (pos - neg) / (pos + neg)

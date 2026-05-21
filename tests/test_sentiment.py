@@ -90,3 +90,16 @@ def test_profit_warning_is_negative() -> None:
     s = LexiconSentiment()
     score = s.score_item(_make("Boeing issued a profit warning"))
     assert score < -0.1, f"expected negative polarity, got {score}"
+
+
+def test_word_multiplicity_increases_score() -> None:
+    """After linear (non-set) token counting, repeated emphasis counts more.
+
+    Using a mixed headline so the ratio (pos-neg)/(pos+neg) actually differs
+    with multiplicity (pure-positive cases saturate at +1.0 either way).
+    """
+    s = LexiconSentiment()
+    once = s.score_item(_make("Stock rallies but faces some weakness"))
+    thrice = s.score_item(_make("Stock rallies rallies rallies but faces some weakness"))
+    assert thrice > once, "repeated positive word should increase polarity"
+    assert once >= 0 and thrice > 0.2
