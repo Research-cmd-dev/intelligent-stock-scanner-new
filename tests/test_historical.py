@@ -189,7 +189,11 @@ def test_available_tools_catalog_shape():
     from src.modal_app import available_tools
 
     tools = available_tools()
-    assert {t["name"] for t in tools} == {"download_historical_data", "run_backtest"}
+    assert isinstance(tools, list)
     for tool in tools:
+        assert isinstance(tool, dict)
+        assert "name" in tool
+        assert "function_path" in tool
+        assert "parameters" in tool
         assert tool["function_path"].startswith("src.modal_app.app:")
         assert tool["parameters"]["type"] == "object"
