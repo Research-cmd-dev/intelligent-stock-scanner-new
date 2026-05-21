@@ -54,6 +54,7 @@ VOLUME_NAME = "stock_data"
 VOLUME_MOUNT = "/data"
 HISTORICAL_DIR = f"{VOLUME_MOUNT}/historical"
 BACKTEST_DIR = f"{VOLUME_MOUNT}/backtests"
+MAX_HISTORICAL_DIR = f"{VOLUME_MOUNT}/historical_max"
 
 stock_data_volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
@@ -89,10 +90,12 @@ def _activate_volume_paths() -> None:
     """Point the historical + backtest helpers at the mounted volume."""
     os.environ["STOCK_DATA_ROOT"] = HISTORICAL_DIR
     os.environ["STOCK_BACKTEST_ROOT"] = BACKTEST_DIR
+    os.environ["MAX_HISTORICAL_ROOT"] = MAX_HISTORICAL_DIR
     os.environ.setdefault("CACHE_DIR", "/tmp/cache")
     os.environ.setdefault("LOG_DIR", BACKTEST_DIR)
     Path(HISTORICAL_DIR).mkdir(parents=True, exist_ok=True)
     Path(BACKTEST_DIR).mkdir(parents=True, exist_ok=True)
+    Path(MAX_HISTORICAL_DIR).mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------- #
@@ -224,6 +227,57 @@ def run_backtest_remote(
     }
 
 
+@app.function(
+    image=image,
+    volumes={VOLUME_MOUNT: stock_data_volume},
+    timeout=300,
+    cpu=1,
+    memory=1024,
+)
+def clear_historical_remote() -> dict[str, Any]:
+    """Remove every .parquet file from the historical directory on the volume.
+
+    This lets you start fresh with an entirely new stock list without
+    leftover symbols from previous downloads.
+    """
+    _activate_volume_paths()
+    hist = Path(HISTORICAL_DIR)
+    removed = 0
+    if hist.exists():
+        for p in list(hist.glob("*.parquet")):
+            p.unlink(missing_ok=True)
+            removed += 1
+    stock_data_volume.commit()
+    return {"removed": removed, "historical_dir": str(hist)}
+
+
+@app.function(
+    image=image,
+    volumes={VOLUME_MOUNT: stock_data_volume},
+    secrets=_build_secrets(),
+    timeout=6 * 60 * 60,  # 6 hours — enough for 560 tickers with retries
+    cpu=2,
+    memory=4096,
+)
+def download_max_history_remote(
+    force: bool = False,
+    max_workers: int = 8,
+) -> dict[str, Any]:
+    """Download the full max-history yfinance dataset (with dividends & splits)
+    for the complete SECTOR_TICKERS union into the Modal volume under
+    /data/historical_max. Produces per-ticker parquet + _manifest.parquet.
+    """
+    _activate_volume_paths()
+    from src.config import get_settings
+    get_settings.cache_clear()
+
+    from src.data.max_history import download_max_history
+
+    report = download_max_history(force=force, max_workers=max_workers)
+    stock_data_volume.commit()
+    return report.to_summary_dict()
+
+
 # ---------------------------------------------------------------------- #
 # Local entrypoints — usable from Codespaces with `modal run ...`        #
 # ---------------------------------------------------------------------- #
@@ -243,7 +297,7 @@ def download(
 
     Examples:
         modal run -m src.modal_app.app::download --symbols NVDA,PLTR
-        modal run -m src.modal_app.app::download --sector "AI,Chips,Nuclear,Space,Power,Robotics,Bio" --days 5500 --force
+        modal run -m src.modal_app.app::download --sector "AI,Chips,Energy,Space,Robotics,Bio,Software,Misc" --days 5500 --force
     """
     sym_list = [s.strip().upper() for s in symbols.split(",") if s.strip()] if symbols else []
 
@@ -321,3 +375,44 @@ def backtest(
         print(f"\n{len(out['suggestions'])} suggestion(s):")
         for s in out["suggestions"]:
             print(f"  [{s['priority'].upper()}] {s['category']}: {s['title']}")
+
+
+@app.local_entrypoint()
+def clear_historical() -> None:
+    """Delete all historical OHLCV data from the Modal stock_data volume.
+
+    Use this when you want to abandon the current stock list entirely and
+    start downloading a fresh, different universe.
+
+    Example:
+        modal run -m src.modal_app.app::clear_historical
+    """
+    result = clear_historical_remote.remote()
+    print(f"Removed {result['removed']} historical parquet files from {result['historical_dir']}")
+    print("The volume is now ready for a new stock list via the download entrypoint.")
+
+
+@app.local_entrypoint()
+def download_max(
+    force: bool = False,
+    workers: int = 8,
+) -> None:
+    """Download the complete max-history yfinance dataset (OHLCV + dividends + splits)
+    for all ~560 unique tickers from the SECTOR_TICKERS definition into the
+    Modal volume (/data/historical_max).
+
+    This is the authoritative "new list" pull with full corporate actions.
+
+    Example:
+        modal run -m src.modal_app.app::download_max --force --workers 12
+    """
+    out = download_max_history_remote.remote(force=force, max_workers=workers)
+    print("\n=== Modal Max-History Download Complete ===")
+    print(f"  total:      {out['total']}")
+    print(f"  downloaded: {out['downloaded']}")
+    print(f"  skipped:    {out['skipped']}")
+    print(f"  empty:      {out['empty']}")
+    print(f"  failed:     {out['failed']}")
+    print(f"  elapsed:    {out['elapsed_s']}s")
+    print(f"\nData written under: {MAX_HISTORICAL_DIR}")
+    print("Manifest: _manifest.parquet (contains sectors list per ticker)")

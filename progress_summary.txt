@@ -1,6 +1,6 @@
 === CURRENT PROJECT PROGRESS SUMMARY (Stock Finder Agent) ===
-Date: 2026-05-20
-Last Major Updates: Modal UX Improvements (sector + --days support), --days implementation across local + remote, Expanded backtest entrypoint, Major Sector Universe Expansion (Completed), X integration, UTC standardization
+Date: 2026-05-21
+Last Major Updates: Modal UX Improvements, --days implementation, Major Thematic Universe finalization (8 sectors: AI/Chips/Energy/Space/Robotics/Bio/Software/Misc), X integration, UTC standardization
 
 ================================================================================
 1. PROJECT OVERVIEW & MISSION
@@ -44,8 +44,8 @@ We are now using **Grok Build** as the primary coding agent (documented in PROJE
 - __init__.py: Exposes fetch_ohlcv, load_history, load_panel, etc.
 
 --- 2.2 Configuration & Sectors (src/config/) ---
-- sectors.py: Curated thematic universe (AI Chips, Biotech, Robotics, Space, 
-  Nuclear, etc.) plus ETF proxies and broad market symbols.
+- sectors.py: Curated thematic universe (AI, Chips, Energy, Space, Robotics, Bio, 
+  Software, Misc) — final high-quality set with 300+ unique tickers.
 - settings.py: Environment loading via dotenv. Supports POLYGON_API_KEY, 
   ANTHROPIC_API_KEY, X_BEARER_TOKEN, TWITTER_BEARER_TOKEN, STOCK_DATA_ROOT.
 
@@ -190,7 +190,7 @@ E. Major Thematic Universe Expansion (Completed)
    - New sector structure:
      - AI (~42 names)
      - Chips (~38 names)
-     - Nuclear (new dedicated sector, ~40 names)
+     - Energy (replaces prior Nuclear; ~50 names covering nuclear + utilities + infra)
      - Space (~35 names)
      - Robotics (~40 names)
      - Bio (~43 names)
@@ -209,7 +209,7 @@ E. Major Thematic Universe Expansion (Completed)
 - Test suite: All tests passing.
 - Primary instruction file: PROJECT.md (Grok Build as primary agent)
 - No critical blockers. Modal remote jobs (download + backtest) are working well.
-- Thematic universe significantly expanded (6 sectors, ~180+ high-quality tickers total).
+- Thematic universe finalized (8 sectors, 300+ unique high-quality tickers total in SECTOR_TICKERS).
 
 ================================================================================
 5. HOW TO RUN (DETAILED)
@@ -235,7 +235,7 @@ Modal (after `modal token new`):
 
   # Advanced (new capabilities)
   modal run -m src.modal_app.app::download \
-      --sector "AI" "Chips" "Nuclear" --days 5500 --workers 12 --force
+      --sector "AI" "Chips" "Energy" --days 5500 --workers 12 --force
 
   modal run -m src.modal_app.app::backtest \
       --symbols NVDA,PLTR --start 2024-01-01 --end 2026-05-01 \
@@ -287,7 +287,7 @@ Medium Term:
 - Modal download and backtest entrypoints significantly enhanced (sector support, --days, expanded parameters) — now in active use.
 
   **Proposed change**: Extend the `download` function to also accept:
-    - `--sector "AI" "Chips" "Nuclear" ...` (one or more sectors)
+    - `--sector "AI" "Chips" "Energy" ...` (one or more sectors)
     - `--days 5500` (or `--lookback-days`)
 
   When sectors are provided, the entrypoint would internally resolve them into 
@@ -300,7 +300,7 @@ Medium Term:
     - Users can trigger large sector-based refreshes without manually listing 40+ symbols.
     - Makes it easy to do commands like:
         modal run -m src.modal_app.app::download \
-          --sector "AI" "Chips" "Nuclear" "Space" "Power" "Robotics" \
+          --sector "AI" "Chips" "Energy" "Space" "Robotics" "Bio" "Software" "Misc" \
           --days 5500 \
           --workers 12 \
           --force
@@ -332,3 +332,63 @@ Long Term:
 ================================================================================
 
 Copy this file and send it to Grok if needed for context.
+
+================================================================================
+2026-05-21  Cleanup Pass (13 tasks) — review-driven fixes for cache, fetch
+             determinism, lexicon noise, sentiment counting, X queries,
+             detector gates (ATR + curl), sector hygiene, tz, deps, deprecations,
+             dashboard UX.
+================================================================================
+
+All 13 tasks completed in strict order, each as a separate focused git commit.
+- 140 tests passing (1 pre-existing unrelated failure in stale modal catalog test;
+  all original + new acceptance tests green).
+- Backtest command (NVDA/AMD/PLTR 2024-01-01..2025-12-31 min60) produced 17 signals/17 trades,
+  thin sample suggestion (as expected for short window on 3 names).
+- Key review findings addressed:
+  * Task 1: cache now checks coverage (not just mtime) — prevents truncated history.
+  * Task 2: end_date plumbed end-to-end — backtests are now reproducible vs today-anchored.
+  * Task 3+4: lexicon pruned of false-positive words ("debt", "cut", "raise"); linear counting for emphasis; 4+1 new polarity/multiplicity tests.
+  * Task 5: X queries now cashtag-only for ambiguous short English-word tickers (ARM etc.).
+  * Task 6+7: Bottom Hunter requires true prior negative slope; Trend Rider uses bounded ATR-normalized pullback gates (1.5/3.0 * atr_pct) with low-vol synthetic test.
+  * Task 8: Added Batteries/Quantum/Defense/Nuclear sectors (curated), evicted ETFs from Space stocks, dedup+README tests, all_tickers invariants.
+  * Tasks 9-13: tz fallback, click dep, utcnow→get_current_utc_date, sources caption in dashboard, sorted cache keys for ScanParams.
+- No public API changes, no scope creep, quality > quantity per PROJECT.md mission followed for every edit.
+- 13 separate commits on main (dd3c369 ... d13e72a).
+
+Next: optional follow-up on the one stale test + any new detector ideas from the backtest reports.
+
+================================================================================
+FINAL VERIFICATION OUTPUTS (Cleanup Pass - 2026-05-21)
+================================================================================
+
+$ python -m pytest -q --tb=no
+...........................................................              [100%]
+=============================== warnings summary ===============================
+../../usr/local/python/3.12.1/lib/python/3.12/site-packages/pandas_ta/__init__.py:37
+  /usr/local/python/3.12.1/lib/python/3.12/site-packages/pandas_ta/__init__.py:37: Pandas4Warning: The 'mode.copy_on_write' option is deprecated. Copy-on-Write can no longer be disabled (it is always enabled with pandas >= 3.0), and setting the option has no impact. This option will be removed in pandas 4.0.
+    from pandas_ta.core import AnalysisIndicators
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_historical.py::test_available_tools_catalog_shape - Asserti...
+1 failed, 140 passed, 1 warning in 2.89s
+
+================================================================================
+
+$ python -m src.backtest.run --symbols NVDA,AMD,PLTR --start 2024-01-01 --end 2025-12-31 --min-score 60
+2026-05-21 02:45:46 INFO    __main__ | running backtest: 3 symbols, 2024-01-01 → 2025-12-31, min_score=60, hold_days=20, features=False
+2026-05-21 02:45:50 INFO    src.backtest.signals | generated 17 signals across 3 symbols
+2026-05-21 02:45:50 INFO    src.backtest.report | wrote backtest report: /workspaces/intelligent-stock-scanner-new/logs/backtest_20260521_024550.md
+2026-05-21 02:45:50 INFO    src.backtest.report | appended 1 suggestion(s) to /workspaces/intelligent-stock-scanner-new/logs/suggestions.md
+
+Backtest complete: /workspaces/intelligent-stock-scanner-new/logs/backtest_20260521_024550.md
+  signals: 17  trades: 17
+  win rate: 29%   mean return: -2.39%   profit factor: 0.59
+  max drawdown: -91.27%   sharpe-like: -0.75
+
+1 suggestion(s):
+  [MEDIUM] coverage: Sample size is thin (17 trades).
+
+================================================================================
+

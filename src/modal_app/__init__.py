@@ -77,6 +77,35 @@ AVAILABLE_TOOLS: list[dict[str, Any]] = [
             "required": ["symbols", "start", "end"],
         },
     },
+    {
+        "name": "clear_historical_data",
+        "summary": "Delete ALL historical OHLCV parquet files from the persistent stock_data volume on Modal. Use when you want to abandon the current stock universe entirely and download a fresh new list.",
+        "function_path": "src.modal_app.app:clear_historical_remote",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "download_max_history",
+        "summary": "Download the full maximum-history yfinance dataset (OHLCV + dividends + stock splits, period=max) for the entire 16-sector SECTOR_TICKERS list (~560 unique tickers) into /data/historical_max on the Modal volume. Writes _manifest.parquet with sector membership per ticker. Resumable + fault tolerant.",
+        "function_path": "src.modal_app.app:download_max_history_remote",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "force": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Re-download even if parquet already exists and is non-empty.",
+                },
+                "max_workers": {
+                    "type": "integer",
+                    "default": 8,
+                    "description": "Parallel yfinance workers inside the Modal container.",
+                },
+            },
+        },
+    },
 ]
 
 

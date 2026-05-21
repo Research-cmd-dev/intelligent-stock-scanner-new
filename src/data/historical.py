@@ -518,6 +518,9 @@ def _cli(argv: list[str] | None = None) -> int:
     # list
     sub.add_parser("list", help="Summarize the stored universe.")
 
+    # clear
+    sub.add_parser("clear", help="Delete ALL stored historical parquet files (respects STOCK_DATA_ROOT so it works on Modal volume when that env is active).")
+
     args = parser.parse_args(argv)
 
     if args.cmd == "download":
@@ -526,6 +529,8 @@ def _cli(argv: list[str] | None = None) -> int:
         return _cli_info(args)
     if args.cmd == "list":
         return _cli_list()
+    if args.cmd == "clear":
+        return _cli_clear()
     return 2
 
 
@@ -587,6 +592,21 @@ def _cli_list() -> int:
         print(f"  {f.stem:<10} {size_kb:>8.1f} KB")
     if len(files) > 50:
         print(f"  … and {len(files) - 50} more")
+    return 0
+
+
+def _cli_clear() -> int:
+    """Delete every parquet in the active historical root (local or Modal via env)."""
+    root = historical_root()
+    files = sorted(root.glob("*.parquet"))
+    removed = 0
+    for f in files:
+        f.unlink()
+        removed += 1
+    print(f"Cleared {removed} historical files from {root}")
+    if removed == 0:
+        print("  (nothing to do)")
+    return 0
     return 0
 
 
