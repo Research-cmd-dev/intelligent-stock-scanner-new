@@ -93,6 +93,23 @@ def bottom_hunter_series(n: int = 260, seed: int = 2) -> pd.DataFrame:
     return _ohlcv_from_close(close)
 
 
+def bottom_hunter_already_rising_series(n: int = 260) -> pd.DataFrame:
+    """Mild uptrend that has been rising for >40 bars and is now steeper.
+
+    Constructed so that SMA50_SLOPE_20 ~40 bars ago is already positive.
+    The Bottom Hunter curl gate (which now requires older_slope < 0) must
+    return None — this is *not* a reversal from a prior downtrend.
+    """
+    # Gentle linear-ish updrift for the whole window, then a bit steeper at end.
+    t = np.arange(n)
+    # Phase: slow rise early, faster late — SMA50 slope positive throughout the
+    # last ~60 bars.
+    drift = 0.0008 * t + 0.0004 * np.maximum(0, t - (n - 60))
+    noise = np.cumsum(np.random.RandomState(11).normal(0, 0.0008, n))
+    close = 100.0 * np.exp(drift + noise)
+    return _ohlcv_from_close(close)
+
+
 def flat_chop_series(n: int = 260, seed: int = 3) -> pd.DataFrame:
     """Random walk around a flat mean — should NOT match either pattern."""
     rng = np.random.RandomState(seed)

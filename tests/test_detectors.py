@@ -7,7 +7,10 @@ from src.scanner import (
     add_indicators, detect_bottom_hunter, detect_trend_rider,
 )
 from tests.synthetic import (
-    bottom_hunter_series, flat_chop_series, trend_rider_series,
+    bottom_hunter_already_rising_series,
+    bottom_hunter_series,
+    flat_chop_series,
+    trend_rider_series,
 )
 
 
@@ -52,6 +55,16 @@ def test_bottom_hunter_silent_on_uptrend() -> None:
 
 def test_bottom_hunter_silent_on_flat_chop() -> None:
     df = add_indicators(flat_chop_series())
+    assert detect_bottom_hunter(df, "FAKE") is None
+
+
+def test_bottom_hunter_silent_on_already_rising_trend() -> None:
+    """Chart already in mild uptrend 40+ bars ago (older_slope >= 0) must not fire.
+
+    The tightened curl gate (older_slope < 0 required) prevents false positives
+    on continuation rather than reversal.
+    """
+    df = add_indicators(bottom_hunter_already_rising_series())
     assert detect_bottom_hunter(df, "FAKE") is None
 
 

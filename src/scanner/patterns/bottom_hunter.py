@@ -12,9 +12,9 @@ knife, but stepping in once the floor is forming. The setup has four legs:
        (not at the very right edge). Price has worked sideways or higher
        since that low — classic cup floor.
 
-    3. **MA curl.** SMA50 was sloping down a couple months ago and is now
-       sloping up. This is the visible "curl" on the chart and the
-       earliest mechanical signal of a trend change.
+    3. **MA curl.** SMA50 was sloping *down* (negative) a couple months ago
+       and is now sloping up. Continuation of an already-positive slope
+       does not count — we want a genuine reversal inflection.
 
     4. **RSI recovery.** RSI(14) was oversold (<35) somewhere in the
        recent past and has lifted into the 45-65 zone — momentum coming
@@ -120,15 +120,15 @@ def detect_bottom_hunter(
     base_quality = clamp(base_quality)
 
     # MA curl: SMA50 should be flat-to-up now (positive slope), having
-    # been negative ~40 bars ago. We use the difference of slopes as the
-    # signal — biggest reward when slope flipped meaningfully positive.
+    # been *negative* ~40 bars ago (true reversal, not continuation of an
+    # already-rising trend). We use the difference of slopes as the signal.
     older_slope = float(window[SMA50_SLOPE_20].iloc[40]) if len(window) > 40 else float("nan")
     if pd.isna(older_slope):
         curl_delta = 0.0
     else:
         curl_delta = float(sma50_slope) - older_slope
-    # Reward positive current slope; require the curl_delta to be positive.
-    if float(sma50_slope) <= 0 or curl_delta <= 0:
+    # Hard gate: current slope up + meaningful curl from a *prior negative* slope.
+    if float(sma50_slope) <= 0 or curl_delta <= 0 or (not pd.isna(older_slope) and older_slope >= 0):
         curl_quality = 0.0
     else:
         curl_quality = clamp(float(sma50_slope) / 0.05) * clamp(curl_delta / 0.05)
