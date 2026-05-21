@@ -18,7 +18,7 @@ import sys
 from datetime import datetime, timedelta
 
 from src.config.sectors import all_tickers, tickers_for_sectors
-from src.utils import get_logger
+from src.utils import get_current_utc_date, get_logger
 
 from .engine import run_backtest
 from .report import write_report
@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    today = datetime.utcnow().date()
+    today = get_current_utc_date()
     default_start = (today - timedelta(days=365 * 2)).isoformat()
 
     p = argparse.ArgumentParser(
