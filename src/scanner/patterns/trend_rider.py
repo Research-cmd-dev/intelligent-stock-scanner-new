@@ -23,6 +23,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.scanner.indicators import (
+    ATR14,
     DIST_SMA50, DIST_SMA200, RSI14, SMA50, SMA200,
     SMA50_SLOPE_20, SMA200_SLOPE_20,
     has_min_history, snapshot,
@@ -76,10 +77,28 @@ def detect_trend_rider(
         return None  # SMA200 not rising — not an uptrend.
     if close < sma200:
         return None  # Below the long-term anchor.
-    if dist50 > 0.10:
-        return None  # Too far above SMA50 — extended, not a pullback.
-    if dist50 < -0.05:
-        return None  # Broken below SMA50 by more than 5% — not "near" support.
+
+    # ATR-aware pullback gates when available (volatility-normalized).
+    # Falls back to the original fixed percentages otherwise.
+    atr = last.get(ATR14)
+    used_atr_gate = False
+    if pd.notna(atr) and close > 0:
+        atr_pct = float(atr) / close
+        # Bound the derived thresholds so calm regimes don't become hair-trigger
+        # and volatile ones don't become unfilterable.
+        broken_below = max(0.02, min(0.10, 1.5 * atr_pct))
+        extended = max(0.02, min(0.10, 3.0 * atr_pct))
+        if dist50 < -broken_below:
+            return None  # Broken below SMA50 by > ~1.5 ATR (real break, not noise)
+        if dist50 > extended:
+            return None  # Extended > ~3 ATR above SMA50
+        used_atr_gate = True
+
+    if not used_atr_gate:
+        if dist50 > 0.10:
+            return None  # Too far above SMA50 — extended, not a pullback.
+        if dist50 < -0.05:
+            return None  # Broken below SMA50 by more than 5% — not "near" support.
 
     # ---- Scored components, each normalized to [0, 1]. ----
 

@@ -93,6 +93,28 @@ def bottom_hunter_series(n: int = 260, seed: int = 2) -> pd.DataFrame:
     return _ohlcv_from_close(close)
 
 
+def trend_rider_low_vol_pullback_series(n: int = 260) -> pd.DataFrame:
+    """Gentle uptrend with very low volatility (tiny ATR).
+
+    A 3% pullback is ~1.5+ ATR in this regime and must be treated as a
+    legitimate pullback (not rejected by the ATR-normalized gate, and not
+    treated as "noise").
+    """
+    t = np.arange(n)
+    # Very slow drift + tiny noise → low ATR relative to price.
+    drift = 0.0003 * t
+    noise = np.cumsum(np.random.RandomState(42).normal(0, 0.0004, n))
+    close = 100.0 * np.exp(drift + noise)
+    df = _ohlcv_from_close(close)
+    # Engineer a visible ~3% pullback near the end
+    n_pull = 25
+    df.iloc[-n_pull:, df.columns.get_loc("close")] *= np.linspace(1.0, 0.97, n_pull)
+    df["open"] = df["close"].shift(1).fillna(df["close"].iloc[0])
+    df["high"] = df[["open", "close"]].max(axis=1) * 1.001
+    df["low"] = df[["open", "close"]].min(axis=1) * 0.999
+    return df
+
+
 def bottom_hunter_already_rising_series(n: int = 260) -> pd.DataFrame:
     """Mild uptrend that has been rising for >40 bars and is now steeper.
 
