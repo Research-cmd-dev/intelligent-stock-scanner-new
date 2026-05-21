@@ -29,7 +29,7 @@ POSITIVE_WORDS: frozenset[str] = frozenset({
     "momentum", "record", "milestone", "breakthrough",
     # Profitability
     "profit", "profitable", "profits", "earnings", "revenue",
-    "raised", "raise", "raises", "boost", "boosted", "boosts",
+    "boost", "boosted", "boosts",
     # Ratings / analyst
     "upgrade", "upgraded", "upgrades", "bullish", "buy", "overweight",
     # Wins
@@ -43,6 +43,8 @@ POSITIVE_PHRASES: tuple[str, ...] = (
     "better than expected", "ahead of estimates", "guidance raised",
     "fda approval", "wins contract", "exceeds expectations",
     "tops estimates",
+    # preserve directional meaning for "raise" even after removing the bare word
+    "raised guidance", "raises guidance", "capital raise",
 )
 
 NEGATIVE_WORDS: frozenset[str] = frozenset({
@@ -58,7 +60,7 @@ NEGATIVE_WORDS: frozenset[str] = frozenset({
     "loss", "losses", "weak", "weakness", "weaker", "slowdown",
     "layoff", "layoffs", "restructuring", "writedown", "writeoff",
     "delay", "delayed", "delays", "halt", "halted", "suspend",
-    "suspended", "shutdown", "cut", "cuts", "slash", "slashed",
+    "suspended", "shutdown", "slash", "slashed",
     "warn", "warning", "warned",
     # Legal / regulatory
     "lawsuit", "sued", "probe", "investigation", "investigated",
@@ -69,12 +71,11 @@ NEGATIVE_WORDS: frozenset[str] = frozenset({
     "underweight",
     # Solvency
     "bankruptcy", "bankrupt", "default", "defaulted", "insolvent",
-    "debt", "leveraged",
 })
 
 NEGATIVE_PHRASES: tuple[str, ...] = (
     "missed estimates", "worse than expected", "below estimates",
-    "guidance cut", "price target cut", "going concern",
+    "guidance cut", "cuts guidance", "price target cut", "going concern",
     "files for bankruptcy", "short seller", "accounting irregularities",
     "profit warning",
 )

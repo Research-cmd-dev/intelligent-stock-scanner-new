@@ -57,3 +57,36 @@ def test_mixed_text_balances_out() -> None:
     score = s.score_item(_make("Company beat estimates but missed on revenue"))
     # One positive, one negative -> ~0
     assert -0.5 < score < 0.5
+
+
+# ---------------------------------------------------------------------- #
+# Task 3: lexicon false-positive fixes (acceptance cases)
+# ---------------------------------------------------------------------- #
+
+
+def test_raises_debt_is_neutral_not_negative() -> None:
+    """'debt' and bare 'raises' removed; headline should be ~0 (not dragged negative)."""
+    s = LexiconSentiment()
+    score = s.score_item(_make("Apple raises $5B in debt offering"))
+    assert -0.2 < score < 0.2, f"expected near-zero polarity, got {score}"
+
+
+def test_cuts_costs_is_neutral_not_negative() -> None:
+    """'cut'/'cuts' removed from NEGATIVE_WORDS (still negative via phrase when appropriate)."""
+    s = LexiconSentiment()
+    score = s.score_item(_make("GE cuts costs by 12% in Q3"))
+    assert -0.2 < score < 0.2, f"expected near-zero polarity, got {score}"
+
+
+def test_raised_guidance_is_positive_via_phrase() -> None:
+    """'raised' word removed from positives, but phrase 'raised guidance' makes it positive."""
+    s = LexiconSentiment()
+    score = s.score_item(_make("Nvidia raised guidance on AI demand"))
+    assert score > 0.1, f"expected positive polarity from phrase, got {score}"
+
+
+def test_profit_warning_is_negative() -> None:
+    """'profit warning' phrase (and 'warning' word) correctly negative."""
+    s = LexiconSentiment()
+    score = s.score_item(_make("Boeing issued a profit warning"))
+    assert score < -0.1, f"expected negative polarity, got {score}"
