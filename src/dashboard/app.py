@@ -294,6 +294,17 @@ def render_summary(report: ScanReport, params: ScanParams) -> None:
             f"narrative {'on' if params.with_narrative else 'off'})."
         )
 
+    if matches:
+        # Surface data source mix so users on Polygon free tier can see how
+        # many hits came from the primary provider vs yfinance fallback.
+        from collections import Counter
+
+        src_counts = Counter(getattr(m, "source", None) for m in matches)
+        src_counts = {k: v for k, v in src_counts.items() if k}  # drop None
+        if src_counts:
+            pretty = ", ".join(f"{k} {v}" for k, v in sorted(src_counts.items()))
+            st.caption(f"Sources: {pretty}.")
+
 
 def render_table(report: ScanReport, params: ScanParams) -> None:
     if not report.matches:
