@@ -211,9 +211,10 @@ def render_sidebar() -> ScanParams | None:
 
     return ScanParams(
         mode="discovery" if mode == "Discovery" else "watchlist",
-        sectors=tuple(sectors),
-        watchlist=tuple(watchlist),
-        patterns=tuple(patterns),
+        # Sort for stable cache keys regardless of multiselect/checkbox click order.
+        sectors=tuple(sorted(sectors)),
+        watchlist=tuple(watchlist),  # already sorted by _parse_watchlist
+        patterns=tuple(sorted(patterns)),
         min_score=float(min_score),
         lookback_days=int(lookback_days),
         include_sector_etfs=include_sector_etfs,
