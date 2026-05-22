@@ -61,3 +61,8 @@ All date and "today" calculations in the project (cache freshness, incremental d
 - `get_current_utc_date()`
 
 This eliminates flakiness from `date.today()` (local timezone) vs `datetime.now(tz=timezone.utc)` and ensures consistent behavior on developer machines, CI, and cloud environments such as GitHub Codespaces.
+
+### Active Specifications
+
+- [Screener Refactor](docs/specs/SCREENER_REFACTOR.md)
+- [Dashboard Spec](docs/specs/DASHBOARD_SPEC.md)
