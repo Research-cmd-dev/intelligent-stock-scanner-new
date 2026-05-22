@@ -19,6 +19,7 @@ import pandas as pd
 from src.backtest.signals import BacktestSignal
 from src.data import fetch_ohlcv
 from src.utils import get_logger
+from src.utils.time import get_current_utc_date
 
 log = get_logger(__name__)
 
@@ -101,19 +102,15 @@ def measure_forward_returns(
 
     for symbol, sym_signals in by_symbol.items():
         earliest = min(s.date for s in sym_signals).date()
-        latest = max(s.date for s in sym_signals).date()
         # The fetcher needs history going back to the earliest signal, plus
         # enough forward room past the latest signal to cover max_horizon.
-        if end is not None:
-            anchor: date | None = end
-            lookback_days = max(400, (anchor - earliest).days + _FORWARD_BUFFER_DAYS)
-        else:
-            anchor = None
-            # Without an anchor, the fetcher uses "today"; ask for enough
-            # history that "today" still covers our earliest signal plus
-            # the forward window past the latest signal.
-            span = (latest - earliest).days + _FORWARD_BUFFER_DAYS
-            lookback_days = max(400, span + _FORWARD_BUFFER_DAYS)
+        # When end is None we anchor to "today" (the fetcher's default
+        # behavior) and size lookback so the cache coverage check accepts
+        # the cached window — otherwise old signals fall outside the
+        # cached frame and every outcome comes back truncated.
+        anchor: date | None = end
+        anchor_for_lookback = end if end is not None else get_current_utc_date()
+        lookback_days = max(400, (anchor_for_lookback - earliest).days + _FORWARD_BUFFER_DAYS)
 
         try:
             df = fetch_ohlcv(symbol, lookback_days=lookback_days, end_date=anchor)

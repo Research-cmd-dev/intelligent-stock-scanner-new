@@ -7,6 +7,8 @@ path, and the one-fetch-per-symbol contract.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pandas as pd
 import pytest
 
@@ -17,6 +19,7 @@ from src.backtest.screener import (
     measure_forward_returns,
 )
 from src.backtest.signals import BacktestSignal
+from src.utils.time import get_current_utc_date
 
 
 # ---------------------------------------------------------------------- #
@@ -156,3 +159,63 @@ def test_batch_fetches_each_symbol_once(monkeypatch):
     bbb_first = next(o for o in outcomes if o.signal.symbol == "BBB" and o.signal.date == frame_b.index[50])
     assert aaa_first.forward_returns[63] == pytest.approx(0.20)   # 120/100 - 1
     assert bbb_first.forward_returns[63] == pytest.approx(0.60)   # 80/50 - 1
+
+
+# ---------------------------------------------------------------------- #
+# Regression: lookback must be anchored to "today" when end is None      #
+# ---------------------------------------------------------------------- #
+
+
+def test_lookback_anchored_to_today_when_no_end(monkeypatch):
+    """Regression for the lookback bug surfaced during NVDA hand-verification.
+
+    Sizing lookback off the signal *span* instead of off "today" caused the
+    fetcher's cache coverage check to reject the cached frame for any
+    signal older than a few hundred days — the signal date then fell
+    outside the loaded index and every outcome came back truncated.
+
+    The fetcher's cache coverage check requires required_start
+    (= anchor - lookback*0.7 days) to be at or before the cached frame's
+    start. To survive that AND still have ~12 months of forward bars
+    available past the signal, the lookback we ask for must comfortably
+    cover (today - earliest_signal) + the longest forward horizon.
+    """
+    today = get_current_utc_date()
+    signal_date = pd.Timestamp(today - timedelta(days=540))
+
+    captured: dict = {}
+
+    def _stub(symbol: str, lookback_days: int = 400, **kwargs):
+        captured["lookback_days"] = lookback_days
+        captured["end_date"] = kwargs.get("end_date")
+        return pd.DataFrame(
+            {"open": [], "high": [], "low": [], "close": [], "volume": []},
+            index=pd.DatetimeIndex([], name="date"),
+        )
+
+    monkeypatch.setattr(screener_mod, "fetch_ohlcv", _stub)
+
+    sig = BacktestSignal(
+        symbol="ZZZ",
+        date=signal_date,
+        pattern="trend_rider",
+        score=70.0,
+        price=0.0,
+    )
+    measure_forward_returns([sig])  # default horizons → max horizon = 252; end omitted
+
+    days_back_to_signal = (today - signal_date.date()).days
+    longest_horizon_trading_days = max(DEFAULT_HORIZONS_DAYS)   # 252
+    buffer_days = 60   # weekends/holidays slack in the forward window
+
+    expected_min = days_back_to_signal + longest_horizon_trading_days + buffer_days
+    assert captured["lookback_days"] >= expected_min, (
+        f"lookback_days={captured['lookback_days']} is too small: "
+        f"need >= {expected_min} "
+        f"(signal age {days_back_to_signal}d "
+        f"+ {longest_horizon_trading_days}d horizon "
+        f"+ {buffer_days}d buffer)"
+    )
+    # When end is None the fetcher should be left to use its own "today"
+    # anchor — we only size lookback ourselves, we don't override end_date.
+    assert captured["end_date"] is None
