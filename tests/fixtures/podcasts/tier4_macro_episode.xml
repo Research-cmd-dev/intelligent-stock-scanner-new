@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Macro Voices</title>
+    <link>https://macrovoices.com</link>
+    <description>Macro and commodities.</description>
+    <item>
+      <title>Stan Druckenmiller on the dollar regime</title>
+      <link>https://macrovoices.com/druck-dollar</link>
+      <guid isPermaLink="false">macro-druck-2025-12</guid>
+      <pubDate>Tue, 15 Dec 2025 14:00:00 +0000</pubDate>
+      <enclosure url="https://cdn.macrovoices.com/druck.mp3" length="80000000" type="audio/mpeg"/>
+      <description>Stan Druckenmiller on dollar weakness, rates, and the next regime.</description>
+    </item>
+  </channel>
+</rss>

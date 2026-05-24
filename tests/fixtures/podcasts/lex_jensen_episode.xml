@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Lex Fridman Podcast</title>
+    <link>https://lexfridman.com/podcast</link>
+    <description>Conversations on AI, science, and the human condition.</description>
+    <item>
+      <title>Jensen Huang on NVIDIA and the AI Compute Wars</title>
+      <link>https://lexfridman.com/jensen-huang-2</link>
+      <guid isPermaLink="false">lexfridman-ep-494</guid>
+      <pubDate>Fri, 15 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://media.lexfridman.com/podcast/494.mp3" length="123456789" type="audio/mpeg"/>
+      <description>Jensen Huang, founder and CEO of NVIDIA, on the next wave of AI compute scaling.</description>
+      <itunes:summary>Jensen on AI compute.</itunes:summary>
+    </item>
+  </channel>
+</rss>

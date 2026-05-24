@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Lex Fridman Podcast</title>
+    <link>https://lexfridman.com/podcast</link>
+    <description>Conversations.</description>
+    <item>
+      <title>Jensen Huang on NVIDIA</title>
+      <link>https://lexfridman.com/jensen-huang-1</link>
+      <guid isPermaLink="false">lexfridman-ep-old</guid>
+      <pubDate>Mon, 15 Jan 2024 12:00:00 +0000</pubDate>
+      <enclosure url="https://media.lexfridman.com/podcast/old.mp3" length="100000000" type="audio/mpeg"/>
+      <description>An older episode with Jensen Huang. Should be filtered out by lookback.</description>
+    </item>
+  </channel>
+</rss>

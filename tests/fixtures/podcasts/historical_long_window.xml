@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Lex Fridman Podcast</title>
+    <link>https://lexfridman.com/podcast</link>
+    <description>Episodes spanning 2024 - 2026 for historical-backfill testing.</description>
+    <item>
+      <title>Jensen Huang on NVIDIA - early 2024 conversation</title>
+      <link>https://lexfridman.com/jensen-old</link>
+      <guid isPermaLink="false">lex-jensen-2024-01</guid>
+      <pubDate>Mon, 15 Jan 2024 12:00:00 +0000</pubDate>
+      <enclosure url="https://media.lexfridman.com/podcast/jensen-old.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Jensen Huang, CEO of NVIDIA, on AI compute and Blackwell.</description>
+    </item>
+    <item>
+      <title>Jensen Huang returns - mid 2025</title>
+      <link>https://lexfridman.com/jensen-mid</link>
+      <guid isPermaLink="false">lex-jensen-2025-06</guid>
+      <pubDate>Sun, 01 Jun 2025 12:00:00 +0000</pubDate>
+      <enclosure url="https://media.lexfridman.com/podcast/jensen-mid.mp3" length="110000000" type="audio/mpeg"/>
+      <description>Jensen Huang on the next decade of AI infrastructure.</description>
+    </item>
+    <item>
+      <title>Jensen Huang on AI factories - early 2026</title>
+      <link>https://lexfridman.com/jensen-recent</link>
+      <guid isPermaLink="false">lex-jensen-2026-04</guid>
+      <pubDate>Wed, 01 Apr 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://media.lexfridman.com/podcast/jensen-recent.mp3" length="120000000" type="audio/mpeg"/>
+      <description>Jensen on AI factory economics and inference scaling.</description>
+    </item>
+  </channel>
+</rss>

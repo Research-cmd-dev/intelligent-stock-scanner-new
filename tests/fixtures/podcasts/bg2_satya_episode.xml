@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Bg2 Pod</title>
+    <link>https://bg2pod.com</link>
+    <description>Brad Gerstner and Bill Gurley on tech, markets, and AI.</description>
+    <item>
+      <title>Episode 42: AI Capex Cycle Update</title>
+      <link>https://bg2pod.com/episodes/42</link>
+      <guid isPermaLink="false">bg2pod-ep-42</guid>
+      <pubDate>Sun, 10 May 2026 15:00:00 +0000</pubDate>
+      <enclosure url="https://cdn.megaphone.fm/bg2pod/ep42.mp3" length="98765432" type="audio/mpeg"/>
+      <description>In this week's episode, Brad Gerstner sits down with Satya Nadella to discuss Microsoft's AI capex cycle, Azure growth, and the future of agentic AI in the enterprise.</description>
+    </item>
+  </channel>
+</rss>

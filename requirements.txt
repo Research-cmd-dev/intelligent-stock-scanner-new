@@ -17,6 +17,12 @@ requests>=2.31
 click>=8.0              # CLI entrypoints (modal_app etc.)
 pyarrow>=15.0           # parquet cache backend
 tenacity>=8.2           # retry/backoff on API failures
+pyyaml>=6.0             # speaker/channel watchlists, narrative configs
+feedparser>=6.0         # YouTube + podcast RSS discovery
+# Transcript ingestion deps (youtube-transcript-api, yt-dlp, faster-whisper,
+# ffmpeg) are declared inline in src/narrative/sources/youtube/modal_app.py
+# because they only need to exist inside the Modal ingestion image — they
+# add ~1GB and a GPU dependency that the rest of the project doesn't need.
 
 # --- deep research (optional layer) ---
 anthropic>=0.40         # LLMResearcher backend

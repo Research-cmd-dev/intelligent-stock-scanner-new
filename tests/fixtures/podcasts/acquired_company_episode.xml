@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Acquired</title>
+    <link>https://acquired.fm</link>
+    <description>Every company has a story.</description>
+    <item>
+      <title>Costco: The Membership Empire</title>
+      <link>https://acquired.fm/episodes/costco</link>
+      <guid isPermaLink="false">acquired-costco</guid>
+      <pubDate>Wed, 12 May 2026 09:00:00 +0000</pubDate>
+      <enclosure url="https://media.transistor.fm/acquired/costco.mp3" length="234567890" type="audio/mpeg"/>
+      <description>Ben Gilbert and David Rosenthal trace Costco's rise from a single Seattle warehouse to a $300B retail giant. The membership model, the Kirkland Signature playbook, and why the food court matters.</description>
+    </item>
+  </channel>
+</rss>
