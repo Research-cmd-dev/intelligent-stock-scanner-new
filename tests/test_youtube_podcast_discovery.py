@@ -259,3 +259,49 @@ def test_tier_filter_empty_set_admits_nothing(speakers, regex_map) -> None:
         filter_to_speaker_tiers=frozenset(),
     )
     assert cands == []
+
+
+# --------------------------------------------------------------------- #
+# Phase 3.6: ingest_all bypass                                          #
+# --------------------------------------------------------------------- #
+
+
+def _allin(*, ingest_all: bool, default_speaker_id: str | None = "allin_hosts") -> ChannelSpec:
+    return ChannelSpec(
+        name="All-In Podcast",
+        channel_id="UCESLZhusAkFfsNsApnjF_Cg",
+        handle="https://www.youtube.com/@allin",
+        owned=False,
+        type="tech_interview",
+        podcast_rss="https://feeds.example/allin",  # synthetic
+        ingest_all=ingest_all,
+        default_speaker_id=default_speaker_id,
+    )
+
+
+def test_ingest_all_bypasses_matcher(speakers, regex_map) -> None:
+    """A 10-item feed with no watched-speaker variants: ingest_all=true
+    accepts all 10; ingest_all=false (matcher path) accepts zero."""
+    feed = _load("ingest_all_no_speakers.xml")
+    on = match_podcast_entries(
+        _allin(ingest_all=True), feed, regex_map, speakers, lookback_days=_WIDE_LOOKBACK,
+    )
+    assert len(on) == 10
+    off = match_podcast_entries(
+        _allin(ingest_all=False), feed, regex_map, speakers, lookback_days=_WIDE_LOOKBACK,
+    )
+    assert off == []
+
+
+def test_ingest_all_uses_default_speaker(speakers, regex_map) -> None:
+    feed = _load("ingest_all_no_speakers.xml")
+    cands = match_podcast_entries(
+        _allin(ingest_all=True, default_speaker_id="allin_hosts"),
+        feed, regex_map, speakers, lookback_days=_WIDE_LOOKBACK,
+    )
+    assert cands, "fixture should produce candidates"
+    for c in cands:
+        assert c.matched_speaker == "allin_hosts"
+        assert c.reason == "ingest_all"
+        assert c.match_source == "ingest_all"
+        assert c.source == "podcast"

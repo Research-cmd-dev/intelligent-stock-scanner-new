@@ -43,6 +43,7 @@ from .discovery import (
     _all_speaker_matches,
     _build_speaker_regex_map,
     _published_utc,
+    _resolve_default_speaker_id,
 )
 
 log = logging.getLogger(__name__)
@@ -124,6 +125,8 @@ def match_podcast_entries(
     """Apply the podcast match rules. Pure function over a parsed feed."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
     pseudo_channel_id = _pseudo_channel_id(channel)
+    if channel.ingest_all:
+        return _accept_all_items(channel, feed, speakers, cutoff, pseudo_channel_id)
     out: list[VideoCandidate] = []
     for entry in feed.entries:
         published = _published_utc(entry)
@@ -133,6 +136,47 @@ def match_podcast_entries(
                           speaker_regex, speakers)
         if cand is not None:
             out.append(cand)
+    return out
+
+
+def _accept_all_items(
+    channel: ChannelSpec,
+    feed: feedparser.FeedParserDict,
+    speakers: dict[str, SpeakerSpec],
+    cutoff: datetime,
+    pseudo_channel_id: str,
+) -> list[VideoCandidate]:
+    """ingest_all path: emit one candidate per recent entry, no matcher."""
+    sid = _resolve_default_speaker_id(channel)
+    sp = speakers.get(sid)
+    tickers = (sp.tickers + sp.amplifies) if sp is not None else ()
+    out: list[VideoCandidate] = []
+    for entry in feed.entries:
+        published = _published_utc(entry)
+        if published < cutoff:
+            continue
+        guid = entry.get("id") or entry.get("guid") or ""
+        if not guid:
+            continue
+        audio_url = _enclosure_url(entry)
+        web_url = (entry.get("link") or "") or (audio_url or "")
+        out.append(VideoCandidate(
+            channel=channel.name,
+            channel_id=pseudo_channel_id,
+            video_id=_pc_id(guid),
+            url=web_url,
+            title=(entry.get("title") or "").strip(),
+            published_utc=published,
+            reason="ingest_all",
+            matched_speaker=sid,
+            matched_tickers=tickers,
+            matched_text="[INGEST_ALL]",
+            match_source="ingest_all",
+            co_speakers=(),
+            source="podcast",
+            audio_url=audio_url,
+            episode_guid=str(guid),
+        ))
     return out
 
 

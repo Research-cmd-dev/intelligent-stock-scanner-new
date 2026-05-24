@@ -92,6 +92,15 @@ class ChannelSpec:
     type: str
     notes: str = ""
     podcast_rss: str | None = None
+    # Opt-in catch-all: when true, every recent item in the lookback
+    # window is emitted as a candidate without running the speaker matcher.
+    # Use for shows where the hosts are the signal (All-In, Acquired) and
+    # named-speaker matching drops too much real content.
+    ingest_all: bool = False
+    # Speaker the ingest_all items are attributed to. When None, a synthetic
+    # ``<channel_slug>_hosts`` id is used; that id will not survive a tier
+    # filter unless registered in speakers.yaml.
+    default_speaker_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +165,10 @@ def load_config(
             type=str(c.get("type") or ""),
             notes=str(c.get("notes") or ""),
             podcast_rss=(str(c["podcast_rss"]) if c.get("podcast_rss") else None),
+            ingest_all=bool(c.get("ingest_all", False)),
+            default_speaker_id=(
+                str(c["default_speaker_id"]) if c.get("default_speaker_id") else None
+            ),
         )
         for c in (channels_data.get("channels") or [])
     )
@@ -232,6 +245,8 @@ def match_entries(
     speakers: dict[str, SpeakerSpec],
 ) -> list[VideoCandidate]:
     """Apply the v2 match rules to one parsed feed. Pure function."""
+    if channel.ingest_all:
+        return _accept_all_youtube_items(channel, feed, speakers)
     out: list[VideoCandidate] = []
     for entry in feed.entries:
         if _is_short(entry):
@@ -240,6 +255,38 @@ def match_entries(
         if candidate is not None:
             out.append(candidate)
     return out
+
+
+def _accept_all_youtube_items(
+    channel: ChannelSpec,
+    feed: feedparser.FeedParserDict,
+    speakers: dict[str, SpeakerSpec],
+) -> list[VideoCandidate]:
+    """ingest_all path: emit one candidate per non-shorts entry, no matcher."""
+    sid = _resolve_default_speaker_id(channel)
+    sp = speakers.get(sid)
+    tickers = (sp.tickers + sp.amplifies) if sp is not None else ()
+    out: list[VideoCandidate] = []
+    for entry in feed.entries:
+        if _is_short(entry):
+            continue
+        out.append(_build_candidate(
+            channel, entry,
+            reason="ingest_all",
+            matched_speaker=sid,
+            matched_tickers=tickers,
+            matched_text="[INGEST_ALL]",
+            match_source="ingest_all",
+        ))
+    return out
+
+
+def _resolve_default_speaker_id(channel: ChannelSpec) -> str:
+    """Channel's ``default_speaker_id`` or synthetic ``<slug>_hosts``."""
+    if channel.default_speaker_id:
+        return channel.default_speaker_id
+    slug = channel.name.lower().replace(" ", "_")
+    return f"{slug}_hosts"
 
 
 # --------------------------------------------------------------------- #

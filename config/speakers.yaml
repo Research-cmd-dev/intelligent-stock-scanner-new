@@ -483,3 +483,15 @@ speakers:
     notes: "Governor, Bank of England"
     ambiguous: true
     requires_context: ["bank of england", boe, governor, "rate decision"]
+
+  # ------------------------------------------------------------------ #
+  # Group attributions — used by channels flagged ingest_all: true      #
+  # ------------------------------------------------------------------ #
+
+  allin_hosts:
+    tier: 3
+    variants: ["Chamath", "David Sacks", "David Friedberg", "Jason Calacanis"]
+    tickers: []
+    amplifies: []
+    authoritative_on: []
+    notes: "Group attribution for All-In podcast episodes (Chamath, Sacks, Friedberg, Calacanis)"

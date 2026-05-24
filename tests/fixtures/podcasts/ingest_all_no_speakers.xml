@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>All-In Podcast (fixture)</title>
+    <link>https://example.com/allin</link>
+    <description>Ten episodes, none of which mention any watched speaker by name.</description>
+    <item>
+      <title>The besties debate the week in markets</title>
+      <link>https://example.com/allin/e001</link>
+      <guid isPermaLink="false">allin-fixture-001</guid>
+      <pubDate>Sat, 23 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e001.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Mailbag, rates, and a rant about productivity software.</description>
+    </item>
+    <item>
+      <title>Mailbag: AI hype cycle vs reality</title>
+      <link>https://example.com/allin/e002</link>
+      <guid isPermaLink="false">allin-fixture-002</guid>
+      <pubDate>Sat, 16 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e002.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Listener questions on infra spend and platform shifts.</description>
+    </item>
+    <item>
+      <title>State of the union: tariffs, treasuries, and the trade book</title>
+      <link>https://example.com/allin/e003</link>
+      <guid isPermaLink="false">allin-fixture-003</guid>
+      <pubDate>Sat, 09 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e003.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Hot takes on the macro picture and what it means for portfolios.</description>
+    </item>
+    <item>
+      <title>Robotics: hardware, dexterity, and the data wall</title>
+      <link>https://example.com/allin/e004</link>
+      <guid isPermaLink="false">allin-fixture-004</guid>
+      <pubDate>Sat, 02 May 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e004.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Why progress is slower than VC marketing suggests.</description>
+    </item>
+    <item>
+      <title>Open source models: economics and gravity</title>
+      <link>https://example.com/allin/e005</link>
+      <guid isPermaLink="false">allin-fixture-005</guid>
+      <pubDate>Sat, 25 Apr 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e005.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Why open weights matter for inference cost and competition.</description>
+    </item>
+    <item>
+      <title>SaaS in 2026: rebundling and the agentic squeeze</title>
+      <link>https://example.com/allin/e006</link>
+      <guid isPermaLink="false">allin-fixture-006</guid>
+      <pubDate>Sat, 18 Apr 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e006.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Margin compression and the application-layer reset.</description>
+    </item>
+    <item>
+      <title>Capital markets refill: IPOs, M&amp;A, and risk appetite</title>
+      <link>https://example.com/allin/e007</link>
+      <guid isPermaLink="false">allin-fixture-007</guid>
+      <pubDate>Sat, 11 Apr 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e007.mp3" length="100000000" type="audio/mpeg"/>
+      <description>What the recent print means for late-stage tech.</description>
+    </item>
+    <item>
+      <title>Geopolitics segment: chips, ports, and supply lines</title>
+      <link>https://example.com/allin/e008</link>
+      <guid isPermaLink="false">allin-fixture-008</guid>
+      <pubDate>Sat, 04 Apr 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e008.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Decoupling math and where the bottlenecks really are.</description>
+    </item>
+    <item>
+      <title>The science corner: longevity, weight loss, and the next GLP-1</title>
+      <link>https://example.com/allin/e009</link>
+      <guid isPermaLink="false">allin-fixture-009</guid>
+      <pubDate>Sat, 28 Mar 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e009.mp3" length="100000000" type="audio/mpeg"/>
+      <description>What the trial data actually shows and the second-order effects.</description>
+    </item>
+    <item>
+      <title>Year-ahead predictions revisited</title>
+      <link>https://example.com/allin/e010</link>
+      <guid isPermaLink="false">allin-fixture-010</guid>
+      <pubDate>Sat, 21 Mar 2026 12:00:00 +0000</pubDate>
+      <enclosure url="https://example.com/allin/e010.mp3" length="100000000" type="audio/mpeg"/>
+      <description>Grading the cohort and what the besties got wrong.</description>
+    </item>
+  </channel>
+</rss>

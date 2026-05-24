@@ -69,6 +69,8 @@ channels:
   type: tech_interview
   notes: Chamath, Sacks, Friedberg, Calacanis
   podcast_rss: https://allinchamathjason.libsyn.com/rss
+  ingest_all: true
+  default_speaker_id: allin_hosts
 - name: Invest Like the Best
   handle: https://www.youtube.com/@JoinColossus
   channel_id: UCfnHKTFEryHWyqr4Xjsjb3w
