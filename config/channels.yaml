@@ -19,14 +19,14 @@ channels:
   owned: false
   type: tech_interview
   notes: AI lab leaders and researchers
-  podcast_rss: null
+  podcast_rss: https://apple.dwarkesh-podcast.workers.dev/feed.rss
 - name: Bg2 Pod
   handle: https://www.youtube.com/@Bg2Pod
   channel_id: UC-yRDvpR99LUc5l7i7jLzew
   owned: false
   type: tech_interview
   notes: Brad Gerstner + Bill Gurley
-  podcast_rss: null
+  podcast_rss: https://anchor.fm/s/f06c2370/podcast/rss
 - name: No Priors
   handle: https://www.youtube.com/@NoPriorsPodcast
   channel_id: UCSI7h9hydQ40K5MJHnCrQvw
@@ -47,14 +47,14 @@ channels:
   owned: false
   type: tech_interview
   notes: Nilay Patel, The Verge
-  podcast_rss: null
+  podcast_rss: https://feeds.megaphone.fm/recodedecode
 - name: 20VC
   handle: https://www.youtube.com/@20VC
   channel_id: UCf0PBRjhf0rF8fWBIxTuoWA
   owned: false
   type: tech_interview
   notes: Harry Stebbings, venture/tech founders
-  podcast_rss: null
+  podcast_rss: https://rss.libsyn.com/shows/61840/destinations/240976.xml
 - name: Sharp Tech
   handle: https://www.youtube.com/@SharpTech
   channel_id: UCwHVzo5X1sXRRyrjNwHQX0Q
@@ -124,21 +124,21 @@ channels:
   owned: false
   type: macro
   notes: Blockworks macro show
-  podcast_rss: null
+  podcast_rss: https://feeds.megaphone.fm/forwardguidance
 - name: Odd Lots
   handle: https://www.youtube.com/@OddLots
   channel_id: UCpqy9zT626hXpZQhclfjlZw
   owned: false
   type: macro
   notes: Bloomberg, Joe Weisenthal + Tracy Alloway
-  podcast_rss: null
+  podcast_rss: https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/8a94442e-5a74-4fa2-8b8d-ae27003a8d6b/982f5071-765c-403d-969d-ae27003a8d83/podcast.rss
 - name: Bloomberg Surveillance
   handle: https://www.youtube.com/@BloombergPodcasts
   channel_id: UChF5O40UBqAc82I7-i5ig6A
   owned: false
   type: macro
   notes: Bloomberg flagship markets show
-  podcast_rss: null
+  podcast_rss: https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/8e704079-ca57-4eac-9741-ae27003e2b7f/9739700c-72c3-4176-ae55-ae27003e2b96/podcast.rss
 - name: Goldman Sachs Exchanges
   handle: https://www.youtube.com/@goldmansachs
   channel_id: UCyz6-taovlaOkPsPtK4KNEg
@@ -152,7 +152,7 @@ channels:
   owned: false
   type: macro
   notes: Ritholtz Wealth Management
-  podcast_rss: null
+  podcast_rss: https://feeds.megaphone.fm/TCP4771071679
 - name: Excess Returns
   handle: https://www.youtube.com/@excessreturns
   channel_id: UCPYvx_y92dvI1PSdiho0ALw
@@ -166,7 +166,7 @@ channels:
   owned: false
   type: macro
   notes: Ted Seides, institutional investors
-  podcast_rss: null
+  podcast_rss: https://rss.libsyn.com/shows/94820/destinations/482814.xml
 - name: Hoover Institution
   handle: https://www.youtube.com/@HooverInstitution
   channel_id: UCzWwWbbKHg4aodl0S35R6XA
@@ -180,21 +180,21 @@ channels:
   owned: false
   type: macro
   notes: Erik Townsend, macro/commodities
-  podcast_rss: null
+  podcast_rss: https://feed.podbean.com/macrovoices/feed.xml
 - name: Real Vision
   handle: https://www.youtube.com/@RealVision
   channel_id: UCwSVtQvURxiyn1CQeyoExZg
   owned: false
   type: macro
   notes: Macro/finance long-form
-  podcast_rss: null
+  podcast_rss: https://feeds.megaphone.fm/realvision
 - name: We Study Billionaires
   handle: https://www.youtube.com/@TheInvestorsPodcast
   channel_id: UCBOkqyWxbp8jtcsvcHB7qog
   owned: false
   type: macro
   notes: The Investor's Podcast Network
-  podcast_rss: null
+  podcast_rss: https://feeds.megaphone.fm/PPLLC8974708240
 - name: Empire Financial Research
   handle: https://www.youtube.com/@EmpirePodcast
   channel_id: UCfZU_nHIBuAgh5lPQG2Bq6Q
