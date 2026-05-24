@@ -1,0 +1,428 @@
+channels:
+- name: Acquired
+  handle: https://www.youtube.com/@AcquiredFM
+  channel_id: UCyFqFYfTW2VoIQKylJ04Rtw
+  owned: false
+  type: tech_interview
+  notes: Long-form company deep dives; has had Jensen, Zuck, Cook
+  podcast_rss: https://feeds.transistor.fm/acquired
+- name: Lex Fridman Podcast
+  handle: https://www.youtube.com/@lexfridman
+  channel_id: UCSHZKyawb77ixDdsGog4iWA
+  owned: false
+  type: tech_interview
+  notes: AI/tech founder interviews
+  podcast_rss: https://lexfridman.com/feed/podcast/
+- name: Dwarkesh Patel
+  handle: https://www.youtube.com/@DwarkeshPatel
+  channel_id: UCXl4i9dYBrFOabk0xGmbkRA
+  owned: false
+  type: tech_interview
+  notes: AI lab leaders and researchers
+  podcast_rss: null
+- name: Bg2 Pod
+  handle: https://www.youtube.com/@Bg2Pod
+  channel_id: UC-yRDvpR99LUc5l7i7jLzew
+  owned: false
+  type: tech_interview
+  notes: Brad Gerstner + Bill Gurley
+  podcast_rss: null
+- name: No Priors
+  handle: https://www.youtube.com/@NoPriorsPodcast
+  channel_id: UCSI7h9hydQ40K5MJHnCrQvw
+  owned: false
+  type: tech_interview
+  notes: Sarah Guo + Elad Gil, AI founders
+  podcast_rss: https://feeds.megaphone.fm/nopriors
+- name: In Good Company
+  handle: https://www.youtube.com/@NorgesBankInvestmentManagement
+  channel_id: UCRhQsN8AVIfZuBNeRV1A37w
+  owned: false
+  type: tech_interview
+  notes: Nicolai Tangen (NBIM/Norway sovereign fund) interviews
+  podcast_rss: null
+- name: Decoder
+  handle: https://www.youtube.com/@decoderpod
+  channel_id: UCYRwJnCWfBqFHEHrgc18FFw
+  owned: false
+  type: tech_interview
+  notes: Nilay Patel, The Verge
+  podcast_rss: null
+- name: 20VC
+  handle: https://www.youtube.com/@20VC
+  channel_id: UCf0PBRjhf0rF8fWBIxTuoWA
+  owned: false
+  type: tech_interview
+  notes: Harry Stebbings, venture/tech founders
+  podcast_rss: null
+- name: Sharp Tech
+  handle: https://www.youtube.com/@SharpTech
+  channel_id: UCwHVzo5X1sXRRyrjNwHQX0Q
+  owned: false
+  type: tech_interview
+  notes: Stratechery's tech show
+  podcast_rss: null
+- name: All-In Podcast
+  handle: https://www.youtube.com/@allin
+  channel_id: UCESLZhusAkFfsNsApnjF_Cg
+  owned: false
+  type: tech_interview
+  notes: Chamath, Sacks, Friedberg, Calacanis
+  podcast_rss: https://allinchamathjason.libsyn.com/rss
+- name: Invest Like the Best
+  handle: https://www.youtube.com/@JoinColossus
+  channel_id: UCfnHKTFEryHWyqr4Xjsjb3w
+  owned: false
+  type: tech_interview
+  notes: Patrick O'Shaughnessy, founders + investors
+  podcast_rss: https://feeds.megaphone.fm/investlikethebest
+- name: The Logan Bartlett Show
+  handle: https://www.youtube.com/@theloganbartlettshow
+  channel_id: UCugS0jD5IAdoqzjaNYzns7w
+  owned: false
+  type: tech_interview
+  notes: Tech founders + investors
+  podcast_rss: null
+- name: Hard Fork
+  handle: https://www.youtube.com/@hardfork
+  channel_id: UCZcR2SVWaGWNlMqPxvQS3vw
+  owned: false
+  type: tech_interview
+  notes: NYT, Roose + Newton on tech
+  podcast_rss: https://feeds.simplecast.com/l2i9YnTd
+- name: The Cognitive Revolution
+  handle: https://www.youtube.com/@CognitiveRevolutionPodcast
+  channel_id: UCjNRVMBVI30Sak_p6HRWhIA
+  owned: false
+  type: tech_interview
+  notes: AI builders and researchers
+  podcast_rss: null
+- name: Latent Space
+  handle: https://www.youtube.com/@LatentSpacePod
+  channel_id: UCxBcwypKK-W3GHd_RZ9FZrQ
+  owned: false
+  type: tech_interview
+  notes: swyx + Alessio, AI engineering
+  podcast_rss: null
+- name: The TWIML AI Podcast
+  handle: https://www.youtube.com/@TWIMLAI
+  channel_id: UC7kjWIK1H8tfmFlzZO-wHMw
+  owned: false
+  type: tech_interview
+  notes: This Week in Machine Learning
+  podcast_rss: null
+- name: TBPN
+  handle: https://www.youtube.com/@TBPN
+  channel_id: UCJjZ9DXPteInDiBwFfx7lrA
+  owned: false
+  type: tech_interview
+  notes: Technology Brothers Podcast Network
+  podcast_rss: null
+- name: Forward Guidance
+  handle: https://www.youtube.com/@ForwardGuidance
+  channel_id: UC0E-St9TloQ7TAu8hn1xJ9w
+  owned: false
+  type: macro
+  notes: Blockworks macro show
+  podcast_rss: null
+- name: Odd Lots
+  handle: https://www.youtube.com/@OddLots
+  channel_id: UCpqy9zT626hXpZQhclfjlZw
+  owned: false
+  type: macro
+  notes: Bloomberg, Joe Weisenthal + Tracy Alloway
+  podcast_rss: null
+- name: Bloomberg Surveillance
+  handle: https://www.youtube.com/@BloombergPodcasts
+  channel_id: UChF5O40UBqAc82I7-i5ig6A
+  owned: false
+  type: macro
+  notes: Bloomberg flagship markets show
+  podcast_rss: null
+- name: Goldman Sachs Exchanges
+  handle: https://www.youtube.com/@goldmansachs
+  channel_id: UCyz6-taovlaOkPsPtK4KNEg
+  owned: false
+  type: macro
+  notes: Goldman research conversations
+  podcast_rss: https://feeds.megaphone.fm/GLD9218176758
+- name: The Compound and Friends
+  handle: https://www.youtube.com/@TheCompoundNews
+  channel_id: UCBRpqrzuuqE8TZcWw75JSdw
+  owned: false
+  type: macro
+  notes: Ritholtz Wealth Management
+  podcast_rss: null
+- name: Excess Returns
+  handle: https://www.youtube.com/@excessreturns
+  channel_id: UCPYvx_y92dvI1PSdiho0ALw
+  owned: false
+  type: macro
+  notes: Validea, factor and quant investing
+  podcast_rss: null
+- name: Capital Allocators
+  handle: https://www.youtube.com/@CapitalAllocatorsPodcast
+  channel_id: UCbzQ_YWf9RsBP9ATbmv5kxQ
+  owned: false
+  type: macro
+  notes: Ted Seides, institutional investors
+  podcast_rss: null
+- name: Hoover Institution
+  handle: https://www.youtube.com/@HooverInstitution
+  channel_id: UCzWwWbbKHg4aodl0S35R6XA
+  owned: false
+  type: macro
+  notes: Stanford Hoover, policy and macro
+  podcast_rss: null
+- name: Macro Voices
+  handle: https://www.youtube.com/@macrovoices
+  channel_id: UCPQsZQ2yvJFv0TCo2wqZMgg
+  owned: false
+  type: macro
+  notes: Erik Townsend, macro/commodities
+  podcast_rss: null
+- name: Real Vision
+  handle: https://www.youtube.com/@RealVision
+  channel_id: UCwSVtQvURxiyn1CQeyoExZg
+  owned: false
+  type: macro
+  notes: Macro/finance long-form
+  podcast_rss: null
+- name: We Study Billionaires
+  handle: https://www.youtube.com/@TheInvestorsPodcast
+  channel_id: UCBOkqyWxbp8jtcsvcHB7qog
+  owned: false
+  type: macro
+  notes: The Investor's Podcast Network
+  podcast_rss: null
+- name: Empire Financial Research
+  handle: https://www.youtube.com/@EmpirePodcast
+  channel_id: UCfZU_nHIBuAgh5lPQG2Bq6Q
+  owned: false
+  type: macro
+  notes: Blockworks Empire (crypto/macro)
+  podcast_rss: null
+- name: On The Margin
+  handle: https://www.youtube.com/@OnTheMarginPodcast
+  channel_id: UC72iwB_P5f870lhB8C5gvzg
+  owned: false
+  type: macro
+  notes: Blockworks, Mike Ippolito
+  podcast_rss: null
+- name: Thoughtful Money
+  handle: https://www.youtube.com/@ThoughtfulMoney
+  channel_id: UCKSl2GeK0iK1Ld9dzSv2HTw
+  owned: false
+  type: macro
+  notes: Adam Taggart
+  podcast_rss: null
+- name: Wealthion
+  handle: https://www.youtube.com/@Wealthion
+  channel_id: UCKMeK-HGHfUFFArZ91rzv5A
+  owned: false
+  type: macro
+  notes: Wealth/macro interviews
+  podcast_rss: null
+- name: Eurodollar University
+  handle: https://www.youtube.com/@eurodollaruniversity
+  channel_id: UCrXNkk4IESnqU-8GMad2vyA
+  owned: false
+  type: macro
+  notes: Jeff Snider, monetary plumbing
+  podcast_rss: null
+- name: SemiAnalysis
+  handle: https://www.youtube.com/@semianalysis
+  channel_id: UCf_KhBXw5TIV0A7butjgFhg
+  owned: false
+  type: sector
+  notes: Dylan Patel, semis
+  podcast_rss: null
+- name: Asianometry
+  handle: https://www.youtube.com/@Asianometry
+  channel_id: UC1LpsuAUaKoMzzJSEt5WImw
+  owned: false
+  type: sector
+  notes: Semis history + supply chain
+  podcast_rss: null
+- name: ARK Invest
+  handle: https://www.youtube.com/@ARK_Invest
+  channel_id: UCK-zlnUfoDHzUwXcbddtnkg
+  owned: false
+  type: sector
+  notes: Cathie Wood, thematic
+  podcast_rss: null
+- name: NVIDIA
+  handle: https://www.youtube.com/@NVIDIA
+  channel_id: UCHuiy8bXnmK5nisYHUd1J5g
+  owned: true
+  type: company
+  notes: GTC keynotes, product launches
+  podcast_rss: null
+- name: Tesla
+  handle: https://www.youtube.com/@tesla
+  channel_id: UC5WjFrtBdufl6CZojX3D8dQ
+  owned: true
+  type: company
+  notes: Robotaxi, AI Day, deliveries
+  podcast_rss: null
+- name: Apple
+  handle: https://www.youtube.com/@Apple
+  channel_id: UCE_M8A5yxnLfW0KghEeajjw
+  owned: true
+  type: company
+  notes: WWDC, product events
+  podcast_rss: null
+- name: Microsoft Developer
+  handle: https://www.youtube.com/@MicrosoftDeveloper
+  channel_id: UCsMica-v34Irf9KVTh6xx-g
+  owned: true
+  type: company
+  notes: Build conference, Azure/Copilot
+  podcast_rss: null
+- name: Google for Developers
+  handle: https://www.youtube.com/@GoogleDevelopers
+  channel_id: UC_x5XG1OV2P6uZZ5FSM9Ttw
+  owned: true
+  type: company
+  notes: Google I/O, Gemini
+  podcast_rss: null
+- name: Meta
+  handle: https://www.youtube.com/@Meta
+  channel_id: UC04FyDIvYXNecpbG8gyOw4A
+  owned: true
+  type: company
+  notes: Meta Connect, Llama
+  podcast_rss: null
+- name: AWS Events
+  handle: https://www.youtube.com/@AWSEventsChannel
+  channel_id: UCdoadna9HFHsxXWhafhNvKw
+  owned: true
+  type: company
+  notes: re:Invent, Summit
+  podcast_rss: null
+- name: AMD
+  handle: https://www.youtube.com/@amd
+  channel_id: UCHQDjDDW8w2RieO-IuqYlyg
+  owned: true
+  type: company
+  notes: Product launches, financial results
+  podcast_rss: null
+- name: Intel
+  handle: https://www.youtube.com/@intel
+  channel_id: UCk7SjrXVXAj8m8BLgzh6dGA
+  owned: true
+  type: company
+  notes: Innovation event, foundry
+  podcast_rss: null
+- name: TSMC
+  handle: https://www.youtube.com/@TSMC
+  channel_id: UCtb_F21By-e-HD6uotM5nlA
+  owned: true
+  type: company
+  notes: Technology symposium, sustainability
+  podcast_rss: null
+- name: Broadcom
+  handle: https://www.youtube.com/@Broadcom
+  channel_id: UCTr3zah69bISSVdBcHiKhpA
+  owned: true
+  type: company
+  notes: Earnings, VMware events
+  podcast_rss: null
+- name: Oracle
+  handle: https://www.youtube.com/@Oracle
+  channel_id: UCHCThmyZ-2yWkv0UVeBDdnQ
+  owned: true
+  type: company
+  notes: CloudWorld, OCI announcements
+  podcast_rss: null
+- name: Salesforce
+  handle: https://www.youtube.com/@salesforce
+  channel_id: UCUpquzY878NEaZm5bc7m2sQ
+  owned: true
+  type: company
+  notes: Dreamforce, Agentforce
+  podcast_rss: null
+- name: ServiceNow
+  handle: https://www.youtube.com/@servicenow
+  channel_id: UCLukrOQYSgsHUR_NSiVZndQ
+  owned: true
+  type: company
+  notes: Knowledge conference, Now Assist
+  podcast_rss: null
+- name: Palantir
+  handle: https://www.youtube.com/@PalantirTech
+  channel_id: UCwed6_f0WcDIioXvMQfcP2Q
+  owned: true
+  type: company
+  notes: AIPCon, government + commercial demos
+  podcast_rss: null
+- name: Snowflake
+  handle: https://www.youtube.com/@snowflakeinc
+  channel_id: UCs10x-muRrTQMJ4Ya-fmIlw
+  owned: true
+  type: company
+  notes: Summit, Snowflake Cortex
+  podcast_rss: null
+- name: OpenAI
+  handle: https://www.youtube.com/@OpenAI
+  channel_id: UCXZCJLdBC09xxGZ6gcdrc6A
+  owned: true
+  type: company
+  notes: Model launches, DevDay
+  podcast_rss: null
+- name: Anthropic
+  handle: https://www.youtube.com/@anthropic-ai
+  channel_id: UCrDwWp7EBBv4NwvScIpBDOA
+  owned: true
+  type: company
+  notes: Model + product announcements
+  podcast_rss: null
+- name: xAI
+  handle: https://www.youtube.com/@xai
+  channel_id: UCo2ri0cvAs8Lxbp18UHZsgg
+  owned: true
+  type: company
+  notes: Grok, Colossus updates
+  podcast_rss: null
+- name: SpaceX
+  handle: https://www.youtube.com/@SpaceX
+  channel_id: UCtI0Hodo5o5dUb67FeUjDeA
+  owned: true
+  type: company
+  notes: Starship, Starlink
+  podcast_rss: null
+- name: Dell Technologies
+  handle: https://www.youtube.com/@DellTechnologies
+  channel_id: UCZHb3OEEJ0WkizEH9ErlgvA
+  owned: true
+  type: company
+  notes: Dell Technologies World
+  podcast_rss: null
+- name: Supermicro
+  handle: https://www.youtube.com/@Supermicro
+  channel_id: UCrE6-2q7uNnfkNiMhF4Ok2w
+  owned: true
+  type: company
+  notes: Server + cooling product reveals
+  podcast_rss: null
+- name: CoreWeave
+  handle: https://www.youtube.com/@CoreWeave
+  channel_id: UChbeJruowh0XwPGHhJQK-5w
+  owned: true
+  type: company
+  notes: GPU cloud product + earnings
+  podcast_rss: null
+- name: Arm
+  handle: https://www.youtube.com/@ArmSoftwareDevelopers
+  channel_id: UCHUAckhCfRom2EHDGxwhfOg
+  owned: true
+  type: company
+  notes: Architecture + product
+  podcast_rss: null
+- name: Qualcomm
+  handle: https://www.youtube.com/@qualcomm
+  channel_id: UCH6eZr6vbZ6Bx53TyuSzxrg
+  owned: true
+  type: company
+  notes: Snapdragon, AI on device
+  podcast_rss: null

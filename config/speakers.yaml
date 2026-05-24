@@ -1,0 +1,485 @@
+speakers:
+
+  # ------------------------------------------------------------------ #
+  # Tier 1 — direct ticker movers (public-company CEOs)                  #
+  # ------------------------------------------------------------------ #
+
+  jensen_huang:
+    tier: 1
+    variants: ["Jensen Huang"]
+    tickers: [NVDA]
+    amplifies: [TSM, AVGO, ARM, AMD, SMCI, CRWV, VRT, GEV]
+    authoritative_on: [ai_compute, sovereign_ai, physical_ai, ai_factories, inference_scaling]
+    notes: "Founder/CEO NVIDIA"
+
+  elon_musk:
+    tier: 1
+    variants: ["Elon Musk"]
+    tickers: [TSLA]
+    amplifies: []
+    authoritative_on: [robotaxi, fsd, ev_demand, humanoid_robots, satellite_internet]
+    notes: "CEO Tesla, SpaceX, xAI"
+
+  tim_cook:
+    tier: 1
+    variants: ["Tim Cook"]
+    tickers: [AAPL]
+    amplifies: []
+    authoritative_on: [consumer_ai, services_growth, china_demand]
+    notes: "CEO Apple"
+
+  satya_nadella:
+    tier: 1
+    variants: ["Satya Nadella"]
+    tickers: [MSFT]
+    amplifies: [NVDA, CRWV]
+    authoritative_on: [enterprise_ai, agentic, copilot, capex_cycle]
+    notes: "CEO Microsoft"
+
+  sundar_pichai:
+    tier: 1
+    variants: ["Sundar Pichai"]
+    tickers: [GOOGL]
+    amplifies: []
+    authoritative_on: [search_ai, gemini, tpu_economics, cloud_growth]
+    notes: "CEO Alphabet/Google"
+
+  mark_zuckerberg:
+    tier: 1
+    variants: ["Mark Zuckerberg", "Zuckerberg"]
+    tickers: [META]
+    amplifies: [NVDA, AVGO]
+    authoritative_on: [open_source_ai, ai_capex, year_of_efficiency, reality_labs]
+    notes: "CEO Meta"
+
+  andy_jassy:
+    tier: 1
+    variants: ["Andy Jassy"]
+    tickers: [AMZN]
+    amplifies: [NVDA]
+    authoritative_on: [aws_growth, ai_capex, agentic_commerce]
+    notes: "CEO Amazon"
+
+  lisa_su:
+    tier: 1
+    variants: ["Lisa Su", "Dr. Lisa Su"]
+    tickers: [AMD]
+    amplifies: [TSM]
+    authoritative_on: [ai_compute, gpu_competition, datacenter_growth]
+    notes: "CEO AMD"
+
+  cc_wei:
+    tier: 1
+    variants: ["C.C. Wei", "CC Wei", "C. C. Wei"]
+    tickers: [TSM]
+    amplifies: [NVDA, AMD, AAPL, AVGO]
+    authoritative_on: [leading_edge_node, foundry_capacity, ai_demand]
+    notes: "Chairman/CEO TSMC"
+
+  lip_bu_tan:
+    tier: 1
+    variants: ["Lip-Bu Tan", "Lip Bu Tan"]
+    tickers: [INTC]
+    amplifies: []
+    authoritative_on: [foundry_turnaround, ai_pc, gaudi]
+    notes: "CEO Intel"
+
+  marc_benioff:
+    tier: 1
+    variants: ["Marc Benioff", "Benioff"]
+    tickers: [CRM]
+    amplifies: []
+    authoritative_on: [agentic_ai, enterprise_ai, customer_360]
+    notes: "CEO Salesforce"
+
+  larry_ellison:
+    tier: 1
+    variants: ["Larry Ellison", "Ellison"]
+    tickers: [ORCL]
+    amplifies: [NVDA]
+    authoritative_on: [oci_growth, ai_capex, database_ai]
+    notes: "Chairman/CTO Oracle"
+
+  safra_catz:
+    tier: 1
+    variants: ["Safra Catz"]
+    tickers: [ORCL]
+    amplifies: []
+    authoritative_on: [oci_growth, multicloud]
+    notes: "CEO Oracle"
+
+  hock_tan:
+    tier: 1
+    variants: ["Hock Tan"]
+    tickers: [AVGO]
+    amplifies: []
+    authoritative_on: [ai_networking, custom_silicon, vmware_integration]
+    notes: "CEO Broadcom"
+
+  michael_dell:
+    tier: 1
+    variants: ["Michael Dell"]
+    tickers: [DELL]
+    amplifies: [NVDA, SMCI]
+    authoritative_on: [ai_infrastructure, server_demand]
+    notes: "CEO Dell Technologies"
+
+  charles_liang:
+    tier: 1
+    variants: ["Charles Liang"]
+    tickers: [SMCI]
+    amplifies: [NVDA]
+    authoritative_on: [liquid_cooling, rack_scale_ai]
+    notes: "CEO Supermicro"
+
+  michael_intrator:
+    tier: 1
+    variants: ["Michael Intrator"]
+    tickers: [CRWV]
+    amplifies: [NVDA]
+    authoritative_on: [gpu_capacity, neocloud]
+    notes: "CEO CoreWeave"
+
+  alex_karp:
+    tier: 1
+    variants: ["Alex Karp", "Alexander Karp"]
+    tickers: [PLTR]
+    amplifies: []
+    authoritative_on: [enterprise_ai, defense_tech, agentic_ops]
+    notes: "CEO Palantir"
+
+  sridhar_ramaswamy:
+    tier: 1
+    variants: ["Sridhar Ramaswamy"]
+    tickers: [SNOW]
+    amplifies: []
+    authoritative_on: [data_cloud, agentic_data]
+    notes: "CEO Snowflake"
+
+  bill_mcdermott:
+    tier: 1
+    variants: ["Bill McDermott"]
+    tickers: [NOW]
+    amplifies: []
+    authoritative_on: [enterprise_agents, workflow_ai]
+    notes: "CEO ServiceNow"
+
+  # ------------------------------------------------------------------ #
+  # Tier 2 — private-company leaders moving public baskets               #
+  # ------------------------------------------------------------------ #
+
+  sam_altman:
+    tier: 2
+    variants: ["Sam Altman"]
+    tickers: []
+    amplifies: [MSFT, NVDA, AVGO, ORCL]
+    authoritative_on: [foundation_models, ai_capex, inference_demand, agi_timeline]
+    notes: "CEO OpenAI (private)"
+
+  dario_amodei:
+    tier: 2
+    variants: ["Dario Amodei"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [foundation_models, ai_safety, agi_timeline]
+    notes: "CEO Anthropic (private)"
+
+  mira_murati:
+    tier: 2
+    variants: ["Mira Murati"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [foundation_models]
+    notes: "CEO Thinking Machines / ex-OpenAI CTO"
+
+  # ------------------------------------------------------------------ #
+  # Tier 3 — sector framers                                              #
+  # ------------------------------------------------------------------ #
+
+  dylan_patel:
+    tier: 3
+    variants: ["Dylan Patel"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [semis_supply_chain, leading_edge_node, ai_compute]
+    notes: "Founder SemiAnalysis"
+    ambiguous: true
+    requires_context: [semianalysis, "semi analysis", chips, semis, foundry, fab]
+
+  ben_thompson:
+    tier: 3
+    variants: ["Ben Thompson"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [platform_strategy, aggregation, ai_business_models]
+    notes: "Founder Stratechery"
+    ambiguous: true
+    requires_context: [stratechery, aggregation, "sharp tech", "sharp china"]
+
+  brad_gerstner:
+    tier: 3
+    variants: ["Brad Gerstner"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [ai_capex, hyperscaler_competition]
+    notes: "Founder Altimeter Capital, co-host Bg2"
+
+  bill_gurley:
+    tier: 3
+    variants: ["Bill Gurley"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [software_economics, regulation_risk]
+    notes: "Benchmark, co-host Bg2"
+
+  doug_olaughlin:
+    tier: 3
+    variants: ["Doug O'Laughlin", "Doug OLaughlin"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [semis_cycle, memory]
+    notes: "Mule Capital / Fabricated Knowledge"
+
+  beth_kindig:
+    tier: 3
+    variants: ["Beth Kindig"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [tech_equity_themes]
+    notes: "Lead Tech Analyst, I/O Fund"
+
+  dan_ives:
+    tier: 3
+    variants: ["Dan Ives"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [tesla_narrative, software_megacap]
+    notes: "Wedbush Securities"
+
+  gene_munster:
+    tier: 3
+    variants: ["Gene Munster"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [apple_narrative]
+    notes: "Deepwater Asset Management"
+
+  stacy_rasgon:
+    tier: 3
+    variants: ["Stacy Rasgon"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [semis_cycle]
+    notes: "Bernstein semiconductor analyst"
+
+  tom_lee:
+    tier: 3
+    variants: ["Tom Lee"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [broad_markets, tech_megacap]
+    notes: "Fundstrat head of research"
+    ambiguous: true
+    requires_context: [fundstrat, "head of research", market, equities, "s&p", stocks]
+
+  cathie_wood:
+    tier: 3
+    variants: ["Cathie Wood", "Cathy Wood"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [thematic_ark_basket]
+    notes: "ARK Invest CEO"
+
+  # ------------------------------------------------------------------ #
+  # Tier 4 — macro voices                                                #
+  # ------------------------------------------------------------------ #
+
+  stan_druckenmiller:
+    tier: 4
+    variants: ["Stan Druckenmiller", "Druckenmiller"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Duquesne Family Office"
+
+  david_tepper:
+    tier: 4
+    variants: ["David Tepper"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Appaloosa Management"
+
+  howard_marks:
+    tier: 4
+    variants: ["Howard Marks"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Oaktree Capital"
+
+  bill_ackman:
+    tier: 4
+    variants: ["Bill Ackman", "Ackman"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Pershing Square"
+
+  dan_loeb:
+    tier: 4
+    variants: ["Dan Loeb", "Daniel Loeb"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Third Point"
+    ambiguous: true
+    requires_context: ["third point", "hedge fund", "third-point"]
+
+  jeff_gundlach:
+    tier: 4
+    variants: ["Jeff Gundlach", "Gundlach"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "DoubleLine Capital"
+
+  david_rosenberg:
+    tier: 4
+    variants: ["David Rosenberg"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Rosenberg Research"
+    ambiguous: true
+    requires_context: ["rosenberg research", "rosie", macro, recession, "yield curve"]
+
+  jim_bianco:
+    tier: 4
+    variants: ["Jim Bianco"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Bianco Research"
+
+  joseph_wang:
+    tier: 4
+    variants: ["Joseph Wang"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Ex-Fed trader, FedGuy12"
+    ambiguous: true
+    requires_context: ["fed guy", "fedguy", monetary, repo, "federal reserve", liquidity, plumbing]
+
+  cem_karsan:
+    tier: 4
+    variants: ["Cem Karsan", "Kai Volatility"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Kai Volatility"
+
+  mike_green:
+    tier: 4
+    variants: ["Mike Green"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Simplify Asset Management"
+    ambiguous: true
+    requires_context: [simplify, passive, options, vol, vix, "yes i give a fig"]
+
+  lyn_alden:
+    tier: 4
+    variants: ["Lyn Alden"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Lyn Alden Investment Strategy"
+
+  luke_gromen:
+    tier: 4
+    variants: ["Luke Gromen"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Forest for the Trees"
+
+  russell_napier:
+    tier: 4
+    variants: ["Russell Napier"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "ERIC / Library of Mistakes"
+
+  mohamed_elerian:
+    tier: 4
+    variants: ["Mohamed El-Erian", "Mohamed El Erian"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Allianz chief economic advisor"
+
+  hugh_hendry:
+    tier: 4
+    variants: ["Hugh Hendry"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Acid Capitalist, ex-Eclectica"
+
+  harris_kupperman:
+    tier: 4
+    variants: ["Harris Kupperman", "Kuppy"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Praetorian Capital"
+
+  claudia_sahm:
+    tier: 4
+    variants: ["Claudia Sahm"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [macro_regime, rates, dollar, liquidity]
+    notes: "Sahm Consulting / Sahm Rule"
+
+  # ------------------------------------------------------------------ #
+  # Tier 5 — policy                                                      #
+  # ------------------------------------------------------------------ #
+
+  jerome_powell:
+    tier: 5
+    variants: ["Jerome Powell", "Jay Powell", "Chair Powell"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [monetary_policy, rates_path]
+    notes: "Chair, Federal Reserve"
+
+  scott_bessent:
+    tier: 5
+    variants: ["Scott Bessent", "Secretary Bessent"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [monetary_policy, rates_path]
+    notes: "US Treasury Secretary"
+
+  christine_lagarde:
+    tier: 5
+    variants: ["Christine Lagarde", "Lagarde"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [monetary_policy, rates_path]
+    notes: "President, European Central Bank"
+
+  andrew_bailey:
+    tier: 5
+    variants: ["Andrew Bailey"]
+    tickers: []
+    amplifies: []
+    authoritative_on: [monetary_policy, rates_path]
+    notes: "Governor, Bank of England"
+    ambiguous: true
+    requires_context: ["bank of england", boe, governor, "rate decision"]
