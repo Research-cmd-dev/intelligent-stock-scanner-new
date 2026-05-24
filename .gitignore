@@ -22,6 +22,8 @@ data/cache/*
 !data/cache/.gitkeep
 data/historical/*
 !data/historical/.gitkeep
+data/historical_max/
+data/narrative/
 logs/*
 !logs/.gitkeep
 
