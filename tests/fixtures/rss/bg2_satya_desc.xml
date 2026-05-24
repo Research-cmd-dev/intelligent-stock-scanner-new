@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UC-yRDvpR99LUc5l7i7jLzew</id>
+  <yt:channelId>UC-yRDvpR99LUc5l7i7jLzew</yt:channelId>
+  <title>Bg2 Pod</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UC-yRDvpR99LUc5l7i7jLzew"/>
+  <entry>
+    <id>yt:video:Bg2Satya001</id>
+    <yt:videoId>Bg2Satya001</yt:videoId>
+    <yt:channelId>UC-yRDvpR99LUc5l7i7jLzew</yt:channelId>
+    <title>Bg2 Pod Episode 42: AI Capex Cycle Update</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=Bg2Satya001"/>
+    <published>2026-03-20T15:00:00+00:00</published>
+    <updated>2026-03-20T15:00:00+00:00</updated>
+    <media:group>
+      <media:title>Bg2 Pod Episode 42: AI Capex Cycle Update</media:title>
+      <media:description>In this week's episode, Brad Gerstner sits down with Satya Nadella to discuss Microsoft's capex plans, Azure growth, and the future of agentic AI.</media:description>
+    </media:group>
+  </entry>
+</feed>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UCSHZKyawb77ixDdsGog4iWA</id>
+  <yt:channelId>UCSHZKyawb77ixDdsGog4iWA</yt:channelId>
+  <title>Lex Fridman</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UCSHZKyawb77ixDdsGog4iWA"/>
+  <entry>
+    <id>yt:video:vif8NQcjVf0</id>
+    <yt:videoId>vif8NQcjVf0</yt:videoId>
+    <yt:channelId>UCSHZKyawb77ixDdsGog4iWA</yt:channelId>
+    <title>Jensen Huang: NVIDIA - The $4 Trillion Company &amp; the AI Revolution | Lex Fridman Podcast #494</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=vif8NQcjVf0"/>
+    <published>2026-03-23T12:00:00+00:00</published>
+    <updated>2026-03-23T12:00:00+00:00</updated>
+    <media:group>
+      <media:title>Jensen Huang: NVIDIA - The $4 Trillion Company &amp; the AI Revolution | Lex Fridman Podcast #494</media:title>
+      <media:description>Conversation with Jensen Huang on AI, compute, and the future of NVIDIA.</media:description>
+    </media:group>
+  </entry>
+</feed>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UC-yRDvpR99LUc5l7i7jLzew</id>
+  <yt:channelId>UC-yRDvpR99LUc5l7i7jLzew</yt:channelId>
+  <title>Bg2 Pod</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UC-yRDvpR99LUc5l7i7jLzew"/>
+  <entry>
+    <id>yt:video:CoSpeakers1</id>
+    <yt:videoId>CoSpeakers1</yt:videoId>
+    <yt:channelId>UC-yRDvpR99LUc5l7i7jLzew</yt:channelId>
+    <title>AI Wars: Who Builds the Next Trillion-Dollar Platform?</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=CoSpeakers1"/>
+    <published>2026-04-10T15:00:00+00:00</published>
+    <updated>2026-04-10T15:00:00+00:00</updated>
+    <media:group>
+      <media:title>AI Wars: Who Builds the Next Trillion-Dollar Platform?</media:title>
+      <media:description>This week, Brad Gerstner sits down with Sam Altman to discuss the future of AI capex, and in the second half we feature an interview with Elon Musk about xAI's latest infrastructure plans.</media:description>
+    </media:group>
+  </entry>
+</feed>

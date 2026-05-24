@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UCSHZKyawb77ixDdsGog4iWA</id>
+  <yt:channelId>UCSHZKyawb77ixDdsGog4iWA</yt:channelId>
+  <title>Test Show</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UCSHZKyawb77ixDdsGog4iWA"/>
+  <entry>
+    <id>yt:video:TomLeeNoCtx</id>
+    <yt:videoId>TomLeeNoCtx</yt:videoId>
+    <yt:channelId>UCSHZKyawb77ixDdsGog4iWA</yt:channelId>
+    <title>Tom Lee on Year-End Setup</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=TomLeeNoCtx"/>
+    <published>2026-03-15T10:00:00+00:00</published>
+    <updated>2026-03-15T10:00:00+00:00</updated>
+    <media:group>
+      <media:title>Tom Lee on Year-End Setup</media:title>
+      <media:description>Year-end thoughts from Tom Lee.</media:description>
+    </media:group>
+  </entry>
+</feed>

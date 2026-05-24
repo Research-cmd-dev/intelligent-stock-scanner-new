@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UCf0PBRjhf0rF8fWBIxTuoWA</id>
+  <yt:channelId>UCf0PBRjhf0rF8fWBIxTuoWA</yt:channelId>
+  <title>20VC</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UCf0PBRjhf0rF8fWBIxTuoWA"/>
+  <entry>
+    <id>yt:video:KrptyANTH01</id>
+    <yt:videoId>KrptyANTH01</yt:videoId>
+    <yt:channelId>UCf0PBRjhf0rF8fWBIxTuoWA</yt:channelId>
+    <title>Andrej Karpathy: The Future of AI Engineering | 20VC E1234</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=KrptyANTH01"/>
+    <published>2026-03-19T09:00:00+00:00</published>
+    <updated>2026-03-19T09:00:00+00:00</updated>
+    <media:group>
+      <media:title>Andrej Karpathy: The Future of AI Engineering | 20VC E1234</media:title>
+      <media:description>Andrej Karpathy joins Harry Stebbings to discuss his move to Anthropic and what he is building.
+
+Chapters:
+00:00 Intro
+05:23 Karpathy on leaving OpenAI
+12:45 Thoughts on Elon Musk and xAI
+23:11 The future of frontier models</media:description>
+    </media:group>
+  </entry>
+</feed>

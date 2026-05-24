@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mf/rss/1.0"
+      xmlns="http://www.w3.org/2005/Atom">
+  <id>yt:channel:UC5WjFrtBdufl6CZojX3D8dQ</id>
+  <yt:channelId>UC5WjFrtBdufl6CZojX3D8dQ</yt:channelId>
+  <title>Tesla</title>
+  <link rel="alternate" href="https://www.youtube.com/channel/UC5WjFrtBdufl6CZojX3D8dQ"/>
+  <entry>
+    <id>yt:video:ShortsTes01</id>
+    <yt:videoId>ShortsTes01</yt:videoId>
+    <yt:channelId>UC5WjFrtBdufl6CZojX3D8dQ</yt:channelId>
+    <title>Cybertruck reveal in 60 seconds</title>
+    <link rel="alternate" href="https://www.youtube.com/shorts/ShortsTes01"/>
+    <published>2026-03-22T18:00:00+00:00</published>
+    <updated>2026-03-22T18:00:00+00:00</updated>
+    <media:group>
+      <media:title>Cybertruck reveal in 60 seconds</media:title>
+      <media:description>Tesla Cybertruck reveal short clip.</media:description>
+    </media:group>
+  </entry>
+</feed>
