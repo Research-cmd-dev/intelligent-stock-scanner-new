@@ -38,6 +38,11 @@ def to_markdown(briefing: dict[str, Any]) -> str:
     parts.append(_render_ticker_rollup(agg.get("ticker_rollup") or []))
     parts.append("")
 
+    picks_section = _render_speculative_picks(agg.get("speculative_picks") or [])
+    if picks_section:
+        parts.append(picks_section)
+        parts.append("")
+
     parts.append("## Episode Highlights")
     for ep in episodes:
         parts.append(_render_episode(ep))
@@ -97,6 +102,81 @@ def _render_ticker_rollup(rollup: list[dict[str, Any]]) -> str:
             f"{r.get('direction', '')} |"
         )
     return "\n".join(lines)
+
+
+# Picks above this mcap (in billions) render with an ⚠️ flag — the
+# constraint in the prompt asks for <$10B, so anything bigger is the
+# LLM ignoring the target and worth surfacing rather than hiding.
+_PICK_MCAP_TARGET_B = 10.0
+_PICK_RENDER_CAP = 5
+
+
+def _render_speculative_picks(picks: list[dict[str, Any]]) -> str:
+    """Render the picks section, or empty string to omit the section entirely."""
+    if not picks:
+        return ""
+    parts: list[str] = [
+        "## Speculative Low-Cap Picks",
+        "*Research starters derived from today's narrative. <$10B market cap "
+        "target. Not investment advice — verify market cap, business model, "
+        "and recent fundamentals before trading.*",
+        "",
+    ]
+    for pick in picks[:_PICK_RENDER_CAP]:
+        ticker = str(pick.get("ticker") or "").strip().upper() or "?"
+        name = str(pick.get("name") or "").strip()
+        mcap = pick.get("estimated_mcap_billions")
+        conviction = str(pick.get("conviction") or "low").strip().lower()
+        thesis = str(pick.get("thesis") or "").strip()
+        source = str(pick.get("narrative_source") or "").strip()
+        amplified = pick.get("tickers_amplified_by") or []
+
+        mcap_str = _format_mcap(mcap)
+        header_bits: list[str] = []
+        if name:
+            header_bits.append(f"**{ticker} — {name}**")
+        else:
+            header_bits.append(f"**{ticker}**")
+        header_bits.append(f"*({mcap_str}, conviction: {conviction})*")
+        parts.append("  ".join(header_bits))
+
+        if thesis:
+            parts.append(thesis)
+
+        footer_bits: list[str] = []
+        if amplified:
+            footer_bits.append(
+                "Amplified by: " + ", ".join(str(a).upper() for a in amplified)
+            )
+        if source:
+            footer_bits.append(f"Source: {source}")
+        if footer_bits:
+            parts.append(f"*{' · '.join(footer_bits)}*")
+        parts.append("")
+
+    parts.append(
+        "*If a pick's estimated mcap looks higher than expected, the LLM may "
+        "have miscategorized — verify before considering. Picks with conviction "
+        "\"low\" should be treated as conversation starters, not signals.*"
+    )
+    return "\n".join(parts)
+
+
+def _format_mcap(mcap: Any) -> str:
+    """``~$30B est. mcap`` with ⚠️ above target flag when over the threshold."""
+    try:
+        value = float(mcap) if mcap is not None else None
+    except (TypeError, ValueError):
+        value = None
+    if value is None:
+        return "mcap unknown"
+    if value >= 1.0:
+        base = f"~${value:.0f}B est. mcap"
+    else:
+        base = f"~${value * 1000:.0f}M est. mcap"
+    if value > _PICK_MCAP_TARGET_B:
+        return f"{base} ⚠️ above target"
+    return base
 
 
 def _render_episode(ep: dict[str, Any]) -> str:

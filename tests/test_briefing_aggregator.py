@@ -185,3 +185,96 @@ def test_aggregate_daily_stub_on_double_failure() -> None:
     assert "failed" in out["headline"].lower()
     assert out["ticker_rollup"] == []
     assert out["themes_today"] == []
+
+
+# --------------------------------------------------------------------- #
+# Phase 3.7.2 addendum — speculative_picks                              #
+# --------------------------------------------------------------------- #
+
+
+def _pick(ticker: str, mcap: float = 5.0, conviction: str = "medium") -> dict[str, Any]:
+    return {
+        "ticker": ticker,
+        "name": f"{ticker} Inc",
+        "estimated_mcap_billions": mcap,
+        "thesis": f"Thesis for {ticker} tied to Jensen NVDA narrative.",
+        "narrative_source": "Jensen on Dwarkesh",
+        "tickers_amplified_by": ["NVDA"],
+        "conviction": conviction,
+    }
+
+
+def _llm_with_picks(picks: list[dict[str, Any]]) -> str:
+    return json.dumps({
+        "headline": "Today's headline",
+        "themes_today": ["AI capex"],
+        "notable_firsts": [],
+        "cross_episode_observations": [],
+        "speculative_picks": picks,
+    })
+
+
+def test_speculative_picks_capped_at_5() -> None:
+    eight_picks = [_pick(f"TKR{i}") for i in range(8)]
+    client = _Client([_llm_with_picks(eight_picks)])
+    out = aggregate_daily(
+        briefing_date=date(2026, 5, 24),
+        episode_summaries=[],
+        recent_briefings=[],
+        client=client,
+    )
+    assert len(out["speculative_picks"]) == 5
+    # Order preserved: first 5 of the input survive.
+    assert [p["ticker"] for p in out["speculative_picks"]] == [
+        "TKR0", "TKR1", "TKR2", "TKR3", "TKR4",
+    ]
+
+
+def test_speculative_picks_empty_array_omits_section() -> None:
+    from src.narrative.briefing.markdown_formatter import to_markdown
+
+    briefing = {
+        "briefing_date": "2026-05-24",
+        "generated_at": "2026-05-24T05:30:00+00:00",
+        "episode_count": 3,
+        "model_versions": {"haiku": "h", "sonnet": "s"},
+        "episodes": [],
+        "aggregation": {
+            "headline": "x",
+            "ticker_rollup": [{"symbol": "NVDA", "total_mentions": 1,
+                               "avg_sentiment": 0.5, "episode_count": 1,
+                               "direction": "bullish_dominant"}],
+            "themes_today": [],
+            "emerging_themes": [],
+            "notable_firsts": [],
+            "cross_episode_observations": [],
+            "speculative_picks": [],
+        },
+    }
+    md = to_markdown(briefing)
+    assert "Speculative Low-Cap Picks" not in md
+
+
+def test_speculative_picks_high_mcap_renders_with_warning() -> None:
+    from src.narrative.briefing.markdown_formatter import to_markdown
+
+    briefing = {
+        "briefing_date": "2026-05-24",
+        "generated_at": "2026-05-24T05:30:00+00:00",
+        "episode_count": 1,
+        "model_versions": {"haiku": "h", "sonnet": "s"},
+        "episodes": [],
+        "aggregation": {
+            "headline": "x",
+            "ticker_rollup": [],
+            "themes_today": [],
+            "emerging_themes": [],
+            "notable_firsts": [],
+            "cross_episode_observations": [],
+            "speculative_picks": [_pick("VRT", mcap=30.0)],
+        },
+    }
+    md = to_markdown(briefing)
+    assert "Speculative Low-Cap Picks" in md
+    assert "VRT" in md
+    assert ("⚠️" in md) or ("above target" in md)

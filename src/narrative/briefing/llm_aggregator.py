@@ -17,10 +17,14 @@ import logging
 from datetime import date as date_
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .novelty_detector import emerging_themes
 from .ticker_aggregator import rollup_tickers
+
+
+# Hard cap on speculative picks even if the LLM returns more.
+MAX_SPECULATIVE_PICKS = 5
 
 
 log = logging.getLogger(__name__)
@@ -35,6 +39,29 @@ DEFAULT_MAX_TOKENS = 2048
 # --------------------------------------------------------------------- #
 
 
+class _SpeculativePick(BaseModel):
+    """One small/mid-cap research starter derived from the day's content."""
+
+    ticker: str
+    name: str = ""
+    estimated_mcap_billions: float | None = None
+    thesis: str
+    narrative_source: str = ""
+    tickers_amplified_by: list[str] = Field(default_factory=list)
+    conviction: str = "low"
+
+    @field_validator("ticker")
+    @classmethod
+    def _upper(cls, v: str) -> str:
+        return (v or "").strip().upper()
+
+    @field_validator("conviction")
+    @classmethod
+    def _validate_conviction(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        return v if v in {"low", "medium", "high"} else "low"
+
+
 class _LLMOutput(BaseModel):
     """Shape Sonnet is asked to emit. Rollup + emerging_themes are
     computed deterministically and not asked of the LLM."""
@@ -43,6 +70,7 @@ class _LLMOutput(BaseModel):
     themes_today: list[str] = Field(default_factory=list)
     notable_firsts: list[str] = Field(default_factory=list)
     cross_episode_observations: list[str] = Field(default_factory=list)
+    speculative_picks: list[_SpeculativePick] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------- #
@@ -63,11 +91,36 @@ Return a JSON object with these exact fields:
 - "themes_today": 4-10 high-level themes that surface across today's episodes. Use noun phrases.
 - "notable_firsts": observations that are notably first-time: a speaker addressing a topic they hadn't before, a framing not in the 14-day digest, a ticker entering the conversation. Each item is one sentence.
 - "cross_episode_observations": resonances or contradictions between episodes — two speakers using the same framing, two episodes contradicting each other on the same ticker. Each item is one sentence.
+- "speculative_picks": 0-5 small/mid-cap research starters (schema and rules below).
 
 RULES:
 - Be specific. "Markets discussed" is filler. "Gerstner and Powell both used 'data-dependent' framing in the same 24h" is signal.
 - Don't fabricate. If a theme isn't actually in the episode summaries, don't include it.
 - Output ONLY valid JSON. No markdown fences. No prose around the JSON.
+
+SPECULATIVE PICKS RULES:
+
+Identify 3-5 small/mid-cap tickers (target: estimated market cap UNDER $10 BILLION) whose narrative connection to today's content makes them speculative research starters. Goal: surface non-obvious adjacency plays, not restate large-cap mentions.
+
+Each pick MUST have:
+- "ticker": a real, publicly-traded US ticker symbol (NYSE, NASDAQ, AMEX) — if unsure whether it exists, OMIT the pick.
+- "name": company name.
+- "estimated_mcap_billions": your best estimate of market cap in billions of USD (a number). The user will verify before trading; honesty beats false precision.
+- "thesis": 1-2 sentences with explicit connection to a specific episode/speaker from today's content.
+- "narrative_source": which episode/speaker the adjacency traces to (e.g. "Jensen Huang on Dwarkesh + Lex Fridman").
+- "tickers_amplified_by": list of large-cap tickers from today's rollup that this pick rides on (e.g. ["NVDA"]).
+- "conviction": "low" | "medium" | "high" based on how directly today's content supports the pick.
+
+CRITICAL CONSTRAINTS for speculative_picks:
+- DO NOT propose tickers above $10B estimated market cap — those go in the regular ticker rollup, not here.
+- DO NOT propose tickers you're uncertain exist — better to return fewer picks than to hallucinate. Empty array is acceptable.
+- DO NOT propose foreign tickers, ETFs, or crypto tokens.
+- DO NOT propose tickers whose business has no clear connection to today's content.
+- If today's content doesn't support strong picks, return [] — better than weak filler.
+- Prefer picks where the thesis is unique to today (not "generic AI play" but "specific to today's Jensen+Benioff convergence on China chip policy").
+
+EXAMPLE pick shape (illustrative — the $30B mcap exceeds the <$10B target on purpose, just to show the schema):
+{"ticker": "VRT", "name": "Vertiv Holdings", "estimated_mcap_billions": 30.0, "thesis": "Data-center power/cooling buildout beneficiary; Jensen's 'AI factories at 10x scale by 2028' implies sustained capex into NVDA's infrastructure suppliers.", "narrative_source": "Jensen Huang on Dwarkesh + Lex Fridman", "tickers_amplified_by": ["NVDA"], "conviction": "medium"}
 """
 
 
@@ -103,6 +156,7 @@ def aggregate_daily(
     llm_out = _call_with_retry(client=client, model=model, prompt=payload)
 
     emerging = emerging_themes(llm_out["themes_today"], recent_briefings)
+    picks = (llm_out.get("speculative_picks") or [])[:MAX_SPECULATIVE_PICKS]
 
     return {
         "headline": llm_out["headline"],
@@ -111,6 +165,7 @@ def aggregate_daily(
         "emerging_themes": emerging,
         "notable_firsts": llm_out["notable_firsts"],
         "cross_episode_observations": llm_out["cross_episode_observations"],
+        "speculative_picks": picks,
     }
 
 
