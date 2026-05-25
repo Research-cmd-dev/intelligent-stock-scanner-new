@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date as date_, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +84,18 @@ CREATE TABLE IF NOT EXISTS ingest_log (
 );
 
 CREATE INDEX IF NOT EXISTS ix_ingest_log_episode ON ingest_log(episode_id, attempted_at DESC);
+
+CREATE TABLE IF NOT EXISTS briefings (
+  id                TEXT PRIMARY KEY,
+  briefing_date     DATE NOT NULL UNIQUE,
+  episode_count     INTEGER NOT NULL,
+  structured_json   TEXT NOT NULL,
+  markdown          TEXT NOT NULL,
+  generated_at      TIMESTAMP NOT NULL,
+  model_versions    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_briefings_date ON briefings(briefing_date);
 """
 
 
@@ -261,6 +273,84 @@ class TranscriptStore:
             (episode_id, now, status, source_method, error),
         )
 
+    # ---- episodes for briefing window -------------------------------- #
+
+    def episodes_ingested_since(
+        self, cutoff_utc: datetime
+    ) -> list[dict[str, Any]]:
+        """Episodes with ``ingested_at >= cutoff``, newest first.
+
+        Used by the Phase 3.7 briefing orchestrator to pick up only the
+        rows that arrived in the lookback window.
+
+        ``published_utc`` and ``ingested_at`` are CAST to TEXT so the
+        connection's PARSE_DECLTYPES converter is bypassed — peewee
+        (transitive dep) registers a TIMESTAMP converter that chokes on
+        the ``+00:00`` tz suffix our writer emits.
+        """
+        rows = self._conn.execute(
+            "SELECT episode_id, source, channel, channel_id, title, url, "
+            "       audio_url, CAST(published_utc AS TEXT), duration_s, "
+            "       primary_speaker, co_speakers, reason, source_method, "
+            "       CAST(ingested_at AS TEXT), is_backfill "
+            "FROM episodes "
+            "WHERE ingested_at >= ? "
+            "ORDER BY published_utc DESC",
+            (cutoff_utc.isoformat(),),
+        ).fetchall()
+        return [_episode_row_to_dict(r) for r in rows]
+
+    # ---- briefings (Phase 3.7) --------------------------------------- #
+
+    def upsert_briefing(
+        self,
+        briefing_id: str,
+        briefing_date: date_,
+        episode_count: int,
+        structured_json: str,
+        markdown: str,
+        generated_at: datetime,
+        model_versions: str,
+    ) -> None:
+        """Idempotent write: re-running for the same date replaces the row."""
+        self._conn.execute(
+            "INSERT OR REPLACE INTO briefings "
+            "(id, briefing_date, episode_count, structured_json, markdown, "
+            " generated_at, model_versions) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (
+                briefing_id,
+                briefing_date.isoformat(),
+                int(episode_count),
+                structured_json,
+                markdown,
+                generated_at.isoformat(),
+                model_versions,
+            ),
+        )
+
+    def get_briefing(self, briefing_date: date_) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT id, CAST(briefing_date AS TEXT), episode_count, structured_json, "
+            "       markdown, CAST(generated_at AS TEXT), model_versions "
+            "FROM briefings WHERE briefing_date = ?",
+            (briefing_date.isoformat(),),
+        ).fetchone()
+        return _briefing_row_to_dict(row) if row is not None else None
+
+    def list_recent_briefings(self, days: int = 14) -> list[dict[str, Any]]:
+        """Most recent ``days`` briefings (newest first), excluding today's."""
+        rows = self._conn.execute(
+            "SELECT id, CAST(briefing_date AS TEXT), episode_count, structured_json, "
+            "       markdown, CAST(generated_at AS TEXT), model_versions "
+            "FROM briefings "
+            "WHERE briefing_date >= date('now', ?) "
+            "  AND briefing_date < date('now') "
+            "ORDER BY briefing_date DESC",
+            (f"-{int(days)} days",),
+        ).fetchall()
+        return [_briefing_row_to_dict(r) for r in rows]
+
 
 # --------------------------------------------------------------------- #
 # Helpers                                                               #
@@ -273,3 +363,36 @@ def _parse_dt(s: Any) -> datetime:
     if isinstance(s, str):
         return datetime.fromisoformat(s)
     raise TypeError(f"unexpected datetime value: {type(s).__name__}")
+
+
+def _episode_row_to_dict(row: tuple) -> dict[str, Any]:
+    co = row[10]
+    return {
+        "episode_id": row[0],
+        "source": row[1],
+        "channel": row[2],
+        "channel_id": row[3],
+        "title": row[4],
+        "url": row[5],
+        "audio_url": row[6],
+        "published_utc": row[7],
+        "duration_s": row[8],
+        "primary_speaker": row[9],
+        "co_speakers": json.loads(co) if co else [],
+        "reason": row[11],
+        "source_method": row[12],
+        "ingested_at": row[13],
+        "is_backfill": bool(row[14]),
+    }
+
+
+def _briefing_row_to_dict(row: tuple) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "briefing_date": row[1],
+        "episode_count": row[2],
+        "structured_json": row[3],
+        "markdown": row[4],
+        "generated_at": row[5],
+        "model_versions": row[6],
+    }

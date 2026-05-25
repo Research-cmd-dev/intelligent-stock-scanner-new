@@ -263,7 +263,7 @@ def db_stats() -> dict[str, Any]:
 
 @app.function(
     image=ingest_image,
-    gpu="T4",
+    gpu="A10G",                         # ~2.5x faster than T4, ~25% more cost
     timeout=60 * 60 * 24,               # 24 hours — bounded by max_episodes
     volumes={VOLUME_MOUNT: stock_data_volume},
     secrets=[ingestion_secret],
@@ -297,3 +297,78 @@ def backfill_episodes(
         whisper_model_name=whisper_model_name,
         on_progress=None if dry_run else _on_progress,
     )
+
+
+# ---------------------------------------------------------------------- #
+# Phase 3.7 — Daily Narrative Briefing                                   #
+# ---------------------------------------------------------------------- #
+#
+# Requires ``ANTHROPIC_API_KEY`` to live in the ``transcript-ingestion``
+# Modal secret alongside the Webshare credentials. The smoke + manual
+# triggers will surface a clear auth error if it's missing.
+#
+# The daily cron schedule below is COMMENTED OUT pending review of the
+# v1 smoke output (per Phase 3.7 spec §15 stop-conditions). Uncomment
+# and re-run ``modal deploy`` to enable nightly briefings at 05:30 UTC.
+
+
+BRIEFINGS_DIR_IN_CONTAINER = Path("/data/briefings")
+
+
+@app.function(
+    image=ingest_image,
+    timeout=60 * 30,                  # 30 min — Haiku per episode + 1 Sonnet
+    volumes={VOLUME_MOUNT: stock_data_volume},
+    secrets=[ingestion_secret],
+    # schedule=modal.Cron("30 5 * * *"),   # 05:30 UTC — enable after smoke approval
+)
+def daily_briefing() -> dict[str, Any]:
+    """Daily briefing generation. Runs an hour after scheduled_ingest."""
+    from datetime import datetime, timezone
+
+    from src.narrative.briefing.briefing import run_briefing
+
+    result = run_briefing(
+        db_path=DB_PATH_IN_CONTAINER,
+        briefing_date=datetime.now(timezone.utc).date(),
+        lookback_hours=24,
+        briefings_dir=BRIEFINGS_DIR_IN_CONTAINER,
+        dry_run=False,
+    )
+    try:
+        stock_data_volume.commit()
+    except Exception as exc:  # pragma: no cover - infrastructure
+        logging.getLogger(__name__).warning("post-briefing commit failed: %s", exc)
+    return result
+
+
+@app.function(
+    image=ingest_image,
+    timeout=60 * 30,
+    volumes={VOLUME_MOUNT: stock_data_volume},
+    secrets=[ingestion_secret],
+)
+def manual_briefing(
+    briefing_date: str | None = None,
+    lookback_hours: int = 24,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Manual trigger. ``briefing_date`` is ISO ``YYYY-MM-DD`` (defaults to today)."""
+    from datetime import date as date_, datetime, timezone
+
+    from src.narrative.briefing.briefing import run_briefing
+
+    target = date_.fromisoformat(briefing_date) if briefing_date else datetime.now(timezone.utc).date()
+    result = run_briefing(
+        db_path=DB_PATH_IN_CONTAINER,
+        briefing_date=target,
+        lookback_hours=int(lookback_hours),
+        briefings_dir=BRIEFINGS_DIR_IN_CONTAINER,
+        dry_run=bool(dry_run),
+    )
+    if not dry_run:
+        try:
+            stock_data_volume.commit()
+        except Exception as exc:  # pragma: no cover - infrastructure
+            logging.getLogger(__name__).warning("post-briefing commit failed: %s", exc)
+    return result

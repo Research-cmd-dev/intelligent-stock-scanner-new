@@ -26,6 +26,7 @@ feedparser>=6.0         # YouTube + podcast RSS discovery
 
 # --- deep research (optional layer) ---
 anthropic>=0.40         # LLMResearcher backend
+pydantic>=2.0           # briefing LLM-output validation (Phase 3.7)
 
 # --- compute layer (optional, opt-in) ---
 modal>=0.64             # remote heavy jobs + persistent stock_data volume
