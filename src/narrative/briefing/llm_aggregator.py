@@ -24,7 +24,9 @@ from .ticker_aggregator import rollup_tickers
 
 
 # Hard cap on speculative picks even if the LLM returns more.
-MAX_SPECULATIVE_PICKS = 5
+# Phase 3.7.3 raised the cap to 10 so the researcher can verify 5 low
+# + 5 mid-cap picks per briefing.
+MAX_SPECULATIVE_PICKS = 10
 
 
 log = logging.getLogger(__name__)
@@ -40,7 +42,13 @@ DEFAULT_MAX_TOKENS = 2048
 
 
 class _SpeculativePick(BaseModel):
-    """One small/mid-cap research starter derived from the day's content."""
+    """One small/mid-cap research starter derived from the day's content.
+
+    ``target_bucket`` is the aggregator's intent (``"low"`` or ``"mid"``).
+    The researcher step in :mod:`llm_researcher` may add an actual
+    ``bucket`` field that disagrees — that disagreement is visible in
+    the final Markdown via a ``⚠️`` marker.
+    """
 
     ticker: str
     name: str = ""
@@ -49,6 +57,7 @@ class _SpeculativePick(BaseModel):
     narrative_source: str = ""
     tickers_amplified_by: list[str] = Field(default_factory=list)
     conviction: str = "low"
+    target_bucket: str = "low"
 
     @field_validator("ticker")
     @classmethod
@@ -60,6 +69,12 @@ class _SpeculativePick(BaseModel):
     def _validate_conviction(cls, v: str) -> str:
         v = (v or "").strip().lower()
         return v if v in {"low", "medium", "high"} else "low"
+
+    @field_validator("target_bucket")
+    @classmethod
+    def _validate_target_bucket(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        return v if v in {"low", "mid"} else "low"
 
 
 class _LLMOutput(BaseModel):
@@ -100,7 +115,11 @@ RULES:
 
 SPECULATIVE PICKS RULES:
 
-Identify 3-5 small/mid-cap tickers (target: estimated market cap UNDER $10 BILLION) whose narrative connection to today's content makes them speculative research starters. Goal: surface non-obvious adjacency plays, not restate large-cap mentions.
+Produce up to 10 picks total: target 5 LOW-CAP ($300M-$2B est. market cap) and 5 MID-CAP ($2B-$10B est. market cap). Each pick must derive from today's narrative content, not from generic sector knowledge.
+
+For each pick, include a `target_bucket` field: "low" or "mid". A downstream researcher step will verify the actual market cap and may reclassify based on what it finds.
+
+If today's narrative doesn't naturally produce strong low-cap picks, return fewer rather than padding with weak ones. Quality over quota. Empty arrays are acceptable.
 
 Each pick MUST have:
 - "ticker": a real, publicly-traded US ticker symbol (NYSE, NASDAQ, AMEX) — if unsure whether it exists, OMIT the pick.
@@ -110,6 +129,7 @@ Each pick MUST have:
 - "narrative_source": which episode/speaker the adjacency traces to (e.g. "Jensen Huang on Dwarkesh + Lex Fridman").
 - "tickers_amplified_by": list of large-cap tickers from today's rollup that this pick rides on (e.g. ["NVDA"]).
 - "conviction": "low" | "medium" | "high" based on how directly today's content supports the pick.
+- "target_bucket": "low" ($300M-$2B) | "mid" ($2B-$10B).
 
 CRITICAL CONSTRAINTS for speculative_picks:
 - DO NOT propose tickers above $10B estimated market cap — those go in the regular ticker rollup, not here.
@@ -119,8 +139,8 @@ CRITICAL CONSTRAINTS for speculative_picks:
 - If today's content doesn't support strong picks, return [] — better than weak filler.
 - Prefer picks where the thesis is unique to today (not "generic AI play" but "specific to today's Jensen+Benioff convergence on China chip policy").
 
-EXAMPLE pick shape (illustrative — the $30B mcap exceeds the <$10B target on purpose, just to show the schema):
-{"ticker": "VRT", "name": "Vertiv Holdings", "estimated_mcap_billions": 30.0, "thesis": "Data-center power/cooling buildout beneficiary; Jensen's 'AI factories at 10x scale by 2028' implies sustained capex into NVDA's infrastructure suppliers.", "narrative_source": "Jensen Huang on Dwarkesh + Lex Fridman", "tickers_amplified_by": ["NVDA"], "conviction": "medium"}
+EXAMPLE pick shape:
+{"ticker": "SERV", "name": "Serve Robotics", "estimated_mcap_billions": 0.4, "thesis": "Last-mile autonomous delivery play directly named in The Compound's discussion of Jensen's physical-AI CES framing.", "narrative_source": "The Compound and Friends — josh_brown on Jensen Huang CES keynote", "tickers_amplified_by": ["NVDA", "TSLA"], "conviction": "medium", "target_bucket": "low"}
 """
 
 

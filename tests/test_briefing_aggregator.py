@@ -192,7 +192,12 @@ def test_aggregate_daily_stub_on_double_failure() -> None:
 # --------------------------------------------------------------------- #
 
 
-def _pick(ticker: str, mcap: float = 5.0, conviction: str = "medium") -> dict[str, Any]:
+def _pick(
+    ticker: str,
+    mcap: float = 5.0,
+    conviction: str = "medium",
+    target_bucket: str = "low",
+) -> dict[str, Any]:
     return {
         "ticker": ticker,
         "name": f"{ticker} Inc",
@@ -201,6 +206,7 @@ def _pick(ticker: str, mcap: float = 5.0, conviction: str = "medium") -> dict[st
         "narrative_source": "Jensen on Dwarkesh",
         "tickers_amplified_by": ["NVDA"],
         "conviction": conviction,
+        "target_bucket": target_bucket,
     }
 
 
@@ -214,19 +220,20 @@ def _llm_with_picks(picks: list[dict[str, Any]]) -> str:
     })
 
 
-def test_speculative_picks_capped_at_5() -> None:
-    eight_picks = [_pick(f"TKR{i}") for i in range(8)]
-    client = _Client([_llm_with_picks(eight_picks)])
+def test_speculative_picks_capped_at_10() -> None:
+    # Phase 3.7.3 raised the cap from 5 to 10 to fit 5 low + 5 mid picks.
+    twelve_picks = [_pick(f"TKR{i}") for i in range(12)]
+    client = _Client([_llm_with_picks(twelve_picks)])
     out = aggregate_daily(
         briefing_date=date(2026, 5, 24),
         episode_summaries=[],
         recent_briefings=[],
         client=client,
     )
-    assert len(out["speculative_picks"]) == 5
-    # Order preserved: first 5 of the input survive.
+    assert len(out["speculative_picks"]) == 10
+    # Order preserved: first 10 of the input survive.
     assert [p["ticker"] for p in out["speculative_picks"]] == [
-        "TKR0", "TKR1", "TKR2", "TKR3", "TKR4",
+        f"TKR{i}" for i in range(10)
     ]
 
 
@@ -252,11 +259,24 @@ def test_speculative_picks_empty_array_omits_section() -> None:
         },
     }
     md = to_markdown(briefing)
-    assert "Speculative Low-Cap Picks" not in md
+    assert "Speculative Picks" not in md
 
 
-def test_speculative_picks_high_mcap_renders_with_warning() -> None:
+def test_speculative_picks_reclassified_above_target_renders_with_warning() -> None:
+    """A pick whose verified bucket is 'large' lands in the Above Target
+    section with a ⚠️ marker, rather than being silently dropped."""
     from src.narrative.briefing.markdown_formatter import to_markdown
+
+    pick = _pick("VRT", mcap=30.0)
+    # Simulate a researcher verdict that reclassified above target.
+    pick.update({
+        "verified": True,
+        "actual_mcap_billions": 30.0,
+        "actual_business_summary": "Data-center power and cooling.",
+        "thesis_matches_business": True,
+        "bucket": "large",
+        "verification_notes": "well over $10B",
+    })
 
     briefing = {
         "briefing_date": "2026-05-24",
@@ -271,10 +291,11 @@ def test_speculative_picks_high_mcap_renders_with_warning() -> None:
             "emerging_themes": [],
             "notable_firsts": [],
             "cross_episode_observations": [],
-            "speculative_picks": [_pick("VRT", mcap=30.0)],
+            "speculative_picks": [pick],
         },
     }
     md = to_markdown(briefing)
-    assert "Speculative Low-Cap Picks" in md
+    assert "Speculative Picks" in md
+    assert "Reclassified Above Target" in md
     assert "VRT" in md
-    assert ("⚠️" in md) or ("above target" in md)
+    assert "⚠️" in md

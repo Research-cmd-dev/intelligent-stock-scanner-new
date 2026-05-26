@@ -97,6 +97,17 @@ def run_briefing(
         model=sonnet_model,
     )
 
+    # Phase 3.7.3 — verify each speculative pick via Sonnet + web_search.
+    # research_picks never raises; failures land as verified=False in the pick.
+    raw_picks = aggregation.get("speculative_picks") or []
+    if raw_picks:
+        from .llm_researcher import research_picks
+        log.info("verifying %d speculative picks via web search", len(raw_picks))
+        aggregation["speculative_picks"] = research_picks(
+            picks=raw_picks,
+            client=active_client,
+        )
+
     briefing_id = briefing_id_for(target_date)
     structured = {
         "briefing_id": briefing_id,

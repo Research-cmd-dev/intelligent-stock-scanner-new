@@ -104,79 +104,203 @@ def _render_ticker_rollup(rollup: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# Picks above this mcap (in billions) render with an ⚠️ flag — the
-# constraint in the prompt asks for <$10B, so anything bigger is the
-# LLM ignoring the target and worth surfacing rather than hiding.
-_PICK_MCAP_TARGET_B = 10.0
-_PICK_RENDER_CAP = 5
+# Per-bucket render caps and bucket definitions (Phase 3.7.3).
+_PICK_RENDER_CAP_PER_BUCKET = 5
 
 
 def _render_speculative_picks(picks: list[dict[str, Any]]) -> str:
-    """Render the picks section, or empty string to omit the section entirely."""
+    """Render verified picks split into Low Cap / Mid Cap / Above Target.
+
+    Returns empty string to omit the whole section when there's nothing
+    actionable to show. Buckets used:
+      * Low Cap: pick's actual ``bucket == "low"`` (or unverified pick
+        whose ``target_bucket == "low"``)
+      * Mid Cap: same for ``"mid"``
+      * Above Target: pick's actual ``bucket == "large"`` — surfaced
+        rather than dropped so the user sees what got reclassified
+
+    Each pick line carries markers:
+      * ``✅`` verified
+      * ``❌`` failed verification
+      * ``⚠️`` actual bucket differs from target bucket
+    """
     if not picks:
         return ""
+
+    low: list[dict[str, Any]] = []
+    mid: list[dict[str, Any]] = []
+    above: list[dict[str, Any]] = []
+    for p in picks:
+        bucket = _effective_bucket(p)
+        if bucket == "low":
+            low.append(p)
+        elif bucket == "mid":
+            mid.append(p)
+        elif bucket == "large":
+            above.append(p)
+        else:
+            # unknown bucket: keep visible in the user's stated target slot
+            tgt = (p.get("target_bucket") or "low").lower()
+            (mid if tgt == "mid" else low).append(p)
+
+    if not (low or mid or above):
+        return ""
+
     parts: list[str] = [
-        "## Speculative Low-Cap Picks",
-        "*Research starters derived from today's narrative. <$10B market cap "
-        "target. Not investment advice — verify market cap, business model, "
-        "and recent fundamentals before trading.*",
+        "## Speculative Picks — Verified via Web Search",
+        "*Tickers derived from today's narrative, verified for existence "
+        "and current market cap. Not investment advice — confirm fundamentals "
+        "before trading.*",
         "",
     ]
-    for pick in picks[:_PICK_RENDER_CAP]:
-        ticker = str(pick.get("ticker") or "").strip().upper() or "?"
-        name = str(pick.get("name") or "").strip()
-        mcap = pick.get("estimated_mcap_billions")
-        conviction = str(pick.get("conviction") or "low").strip().lower()
-        thesis = str(pick.get("thesis") or "").strip()
-        source = str(pick.get("narrative_source") or "").strip()
-        amplified = pick.get("tickers_amplified_by") or []
 
-        mcap_str = _format_mcap(mcap)
-        header_bits: list[str] = []
-        if name:
-            header_bits.append(f"**{ticker} — {name}**")
-        else:
-            header_bits.append(f"**{ticker}**")
-        header_bits.append(f"*({mcap_str}, conviction: {conviction})*")
-        parts.append("  ".join(header_bits))
+    if low:
+        parts.append("### Low Cap ($300M-$2B)")
+        for p in low[:_PICK_RENDER_CAP_PER_BUCKET]:
+            parts.extend(_render_one_pick(p))
+    if mid:
+        parts.append("### Mid Cap ($2B-$10B)")
+        for p in mid[:_PICK_RENDER_CAP_PER_BUCKET]:
+            parts.extend(_render_one_pick(p))
+    if above:
+        parts.append("### Reclassified Above Target ($10B+) ⚠️")
+        for p in above[:_PICK_RENDER_CAP_PER_BUCKET]:
+            parts.extend(_render_one_pick(p))
 
-        if thesis:
-            parts.append(thesis)
-
-        footer_bits: list[str] = []
-        if amplified:
-            footer_bits.append(
-                "Amplified by: " + ", ".join(str(a).upper() for a in amplified)
-            )
-        if source:
-            footer_bits.append(f"Source: {source}")
-        if footer_bits:
-            parts.append(f"*{' · '.join(footer_bits)}*")
-        parts.append("")
-
-    parts.append(
-        "*If a pick's estimated mcap looks higher than expected, the LLM may "
-        "have miscategorized — verify before considering. Picks with conviction "
-        "\"low\" should be treated as conversation starters, not signals.*"
-    )
-    return "\n".join(parts)
+    return "\n".join(parts).rstrip()
 
 
-def _format_mcap(mcap: Any) -> str:
-    """``~$30B est. mcap`` with ⚠️ above target flag when over the threshold."""
+def _effective_bucket(pick: dict[str, Any]) -> str:
+    """Researcher-assigned bucket if present, else 'unknown'."""
+    b = (pick.get("bucket") or "").strip().lower()
+    if b in {"low", "mid", "large", "unknown"}:
+        return b
+    return "unknown"
+
+
+_DELISTED_SIGNALS: tuple[str, ...] = (
+    "delisted",
+    "no longer publicly traded",
+    "no longer trades",
+    "no longer an independent",
+    "no longer independent",
+    "acquired by",
+    "acquisition completed",
+    "acquisition complete",
+    "merger completed",
+    "merger complete",
+    "all-stock merger",
+    "taken private",
+    "private company",
+    "ceased trading",
+    "wholly-owned subsidiary",
+)
+
+
+def _verification_marker(pick: dict[str, Any]) -> str:
+    """Return ✅ for valid picks, ❌ for picks the verifier proved invalid.
+
+    Even when ``verified=True``, if the contradicting-news or verification-
+    notes fields surface evidence the company is no longer publicly traded
+    (acquired, merged out, taken private), flip to ❌ — the ticker existed
+    at some point but isn't a current investable security.
+    """
+    if not pick.get("verified"):
+        return "❌"
+    contradicting = (pick.get("recent_news_contradicting") or "").lower()
+    notes = (pick.get("verification_notes") or "").lower()
+    combined = f"{contradicting} {notes}"
+    if any(signal in combined for signal in _DELISTED_SIGNALS):
+        return "❌"
+    return "✅"
+
+
+def _render_one_pick(pick: dict[str, Any]) -> list[str]:
+    ticker = str(pick.get("ticker") or "").strip().upper() or "?"
+    name = str(pick.get("name") or "").strip()
+    conviction = str(pick.get("conviction") or "low").strip().lower()
+    target_bucket = (pick.get("target_bucket") or "low").lower()
+    actual_bucket = _effective_bucket(pick)
+
+    markers: list[str] = []
+    if "verified" in pick:
+        markers.append(_verification_marker(pick))
+    if (
+        actual_bucket not in {"unknown", ""}
+        and target_bucket not in {"unknown", ""}
+        and actual_bucket != target_bucket
+    ):
+        markers.append("⚠️")
+    marker_str = " ".join(markers)
+
+    actual_mcap = pick.get("actual_mcap_billions")
+    est_mcap = pick.get("estimated_mcap_billions")
+    mcap_str = _format_pick_mcap(actual_mcap, est_mcap)
+
+    head_name = f"{ticker} — {name}" if name else ticker
+    header = f"**{head_name}**"
+    if marker_str:
+        header = f"{header} {marker_str}"
+    header = f"{header}  *({mcap_str}, conviction: {conviction})*"
+
+    lines: list[str] = [header]
+
+    thesis = str(pick.get("thesis") or "").strip()
+    if thesis:
+        lines.append(thesis)
+
+    biz = str(pick.get("actual_business_summary") or "").strip()
+    if biz:
+        lines.append(f"*Actual business:* {biz}")
+
+    supporting = pick.get("recent_news_supporting")
+    if supporting:
+        lines.append(f"*Supporting news:* {supporting}")
+    contradicting = pick.get("recent_news_contradicting")
+    if contradicting:
+        lines.append(f"*Contradicting:* {contradicting}")
+
+    footer_bits: list[str] = []
+    amplified = pick.get("tickers_amplified_by") or []
+    if amplified:
+        footer_bits.append(
+            "Amplified by: " + ", ".join(str(a).upper() for a in amplified)
+        )
+    source = str(pick.get("narrative_source") or "").strip()
+    if source:
+        footer_bits.append(f"Source: {source}")
+    notes = str(pick.get("verification_notes") or "").strip()
+    if notes:
+        footer_bits.append(f"Verification: {notes}")
+    if footer_bits:
+        lines.append(f"*{' · '.join(footer_bits)}*")
+
+    lines.append("")
+    return lines
+
+
+def _format_pick_mcap(actual: Any, estimated: Any) -> str:
+    """Prefer the researcher's actual mcap; fall back to the aggregator's estimate."""
+    actual_v = _coerce_float(actual)
+    if actual_v is not None:
+        return f"actual {_format_billions(actual_v)}"
+    est_v = _coerce_float(estimated)
+    if est_v is not None:
+        return f"~{_format_billions(est_v)} est."
+    return "mcap unknown"
+
+
+def _coerce_float(v: Any) -> float | None:
     try:
-        value = float(mcap) if mcap is not None else None
+        return float(v) if v is not None else None
     except (TypeError, ValueError):
-        value = None
-    if value is None:
-        return "mcap unknown"
+        return None
+
+
+def _format_billions(value: float) -> str:
     if value >= 1.0:
-        base = f"~${value:.0f}B est. mcap"
-    else:
-        base = f"~${value * 1000:.0f}M est. mcap"
-    if value > _PICK_MCAP_TARGET_B:
-        return f"{base} ⚠️ above target"
-    return base
+        return f"${value:.1f}B"
+    return f"${value * 1000:.0f}M"
 
 
 def _render_episode(ep: dict[str, Any]) -> str:

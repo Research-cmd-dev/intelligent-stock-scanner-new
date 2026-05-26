@@ -317,7 +317,10 @@ BRIEFINGS_DIR_IN_CONTAINER = Path("/data/briefings")
 
 @app.function(
     image=ingest_image,
-    timeout=60 * 30,                  # 30 min — Haiku per episode + 1 Sonnet
+    # 1 hour — safety net. Parallel picks researcher (Phase 3.7.3) should
+    # finish in ~2-5 min, but margin lets the briefing tolerate a growing
+    # corpus + slow web_search round trips without container-killing.
+    timeout=60 * 60,
     volumes={VOLUME_MOUNT: stock_data_volume},
     secrets=[ingestion_secret],
     # schedule=modal.Cron("30 5 * * *"),   # 05:30 UTC — enable after smoke approval
@@ -344,7 +347,7 @@ def daily_briefing() -> dict[str, Any]:
 
 @app.function(
     image=ingest_image,
-    timeout=60 * 30,
+    timeout=60 * 60,                  # 1 hour — matches daily_briefing safety net
     volumes={VOLUME_MOUNT: stock_data_volume},
     secrets=[ingestion_secret],
 )
