@@ -213,6 +213,29 @@ def test_is_backfill_distinguishes_rows() -> None:
         assert rows == [("back0000001", 1), ("live0000001", 0)]
 
 
+def test_episodes_ingested_since_excludes_backfill() -> None:
+    """Backfilled episodes must not pollute briefing lookback queries.
+
+    Regression for the 2026-05-26 incident where Phase 3.5 backfill
+    flooded a 24-hour briefing window with 130+ historically-published
+    episodes that had been freshly *ingested*. The briefing should only
+    see live-ingest rows.
+    """
+    with TranscriptStore(":memory:") as store:
+        live = _candidate(video_id="live0000001")
+        back = _candidate(video_id="back0000001")
+        store.write_episode(live, chunks=_chunks(1), duration_s=60.0,
+                            source_method="podcast_rss")
+        store.write_episode(back, chunks=_chunks(1), duration_s=60.0,
+                            source_method="podcast_rss", is_backfill=True)
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        results = store.episodes_ingested_since(cutoff)
+
+        assert [ep["episode_id"] for ep in results] == ["live0000001"]
+        assert all(ep["is_backfill"] is False for ep in results)
+
+
 def test_is_backfill_migration_idempotent_on_pre_phase_3_5_db(tmp_path) -> None:
     """A DB that pre-dates Phase 3.5 (no is_backfill column) must get
     the column added on first instantiation of the new store, without

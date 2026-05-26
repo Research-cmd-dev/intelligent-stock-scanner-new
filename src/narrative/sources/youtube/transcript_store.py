@@ -278,10 +278,14 @@ class TranscriptStore:
     def episodes_ingested_since(
         self, cutoff_utc: datetime
     ) -> list[dict[str, Any]]:
-        """Episodes with ``ingested_at >= cutoff``, newest first.
+        """Live-ingest episodes with ``ingested_at >= cutoff``, newest first.
 
         Used by the Phase 3.7 briefing orchestrator to pick up only the
-        rows that arrived in the lookback window.
+        rows that arrived in the lookback window. Backfill rows
+        (``is_backfill = 1``) are excluded so Phase 3.5 historical
+        re-ingestion doesn't pollute daily briefings — a backfilled
+        episode is typically months old by ``published_utc`` but was
+        ingested recently.
 
         ``published_utc`` and ``ingested_at`` are CAST to TEXT so the
         connection's PARSE_DECLTYPES converter is bypassed — peewee
@@ -295,6 +299,7 @@ class TranscriptStore:
             "       CAST(ingested_at AS TEXT), is_backfill "
             "FROM episodes "
             "WHERE ingested_at >= ? "
+            "  AND is_backfill = 0 "
             "ORDER BY published_utc DESC",
             (cutoff_utc.isoformat(),),
         ).fetchall()
