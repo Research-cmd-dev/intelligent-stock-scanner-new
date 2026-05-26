@@ -323,7 +323,7 @@ BRIEFINGS_DIR_IN_CONTAINER = Path("/data/briefings")
     timeout=60 * 60,
     volumes={VOLUME_MOUNT: stock_data_volume},
     secrets=[ingestion_secret],
-    # schedule=modal.Cron("30 5 * * *"),   # 05:30 UTC — enable after smoke approval
+    schedule=modal.Cron("30 5 * * *"),   # 05:30 UTC daily — enabled 2026-05-26
 )
 def daily_briefing() -> dict[str, Any]:
     """Daily briefing generation. Runs an hour after scheduled_ingest."""
