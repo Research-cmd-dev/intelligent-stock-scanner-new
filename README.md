@@ -1,7 +1,11 @@
 # Stock Finder Agent
 
-A daily stock scanner that hunts for high-conviction setups in thematic sectors
-(AI, Chips, Energy, Batteries, Quantum, Defense, Space, Bio, Robotics, Software, Misc — plus Nuclear for completeness).
+A daily stock scanner that hunts for high-conviction setups in thematic sectors,
+organized as 8 large-cap-led majors (AI, Chips, Energy, Space, Robotics, Bio,
+Software, Misc) paired with 8 smaller-cap micro lanes (AI_micro, Chips_micro,
+Energy_micro, Space_micro, Robotics_micro, Bio_micro, Software_micro, Misc_micro).
+The micro lanes carry the project's quantum, nuclear, batteries, fintech, and
+crypto-miner exposure. Total: ~560 unique tickers across 16 sectors.
 
 It detects two complementary patterns:
 

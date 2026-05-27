@@ -8,22 +8,32 @@ project, including:
 - Narrative layer (themes + catalysts)
 - Backtesting and feature evaluation
 - Modal remote compute jobs (downloads + backtests)
+- Max-history yfinance downloader (`src/data/max_history.py`) — single source of
+  truth; that module imports `SECTOR_TICKERS` from here.
 
-Each sector contains a thoughtfully curated list of 35–55 high-quality, liquid
-companies with strong relevance to the macro theme. The lists prioritize
-established businesses with real fundamentals and aim for a healthy balance
-between large-cap leaders and high-quality mid-cap names.
+Universe shape
+--------------
+16 sectors, ~800 entries (with intentional cross-sector overlap), 560 unique
+tickers. Eight large-cap-led "majors" (AI, Chips, Energy, Space, Robotics,
+Bio, Software, Misc) paired with eight smaller/speculative "_micro" variants
+(AI_micro, Chips_micro, Energy_micro, Space_micro, Robotics_micro, Bio_micro,
+Software_micro, Misc_micro). The micro lanes carry the quantum, nuclear,
+batteries, fintech, and crypto-miner exposure that used to live in standalone
+sectors.
 
 Editing Guidelines
 ------------------
 - Quality > Quantity
 - Stocks must have genuine, strong relevance to the sector/theme
-- Prefer liquid, established companies over speculative microcaps
-- Minimize unnecessary duplication across sectors when possible
-- When adding new sectors or significantly expanding existing ones,
-  update this docstring and the progress_summary.txt
+- Prefer liquid, established companies in the majors; the `_micro` lanes are
+  the right home for smaller, more speculative names.
+- Cross-sector overlap is intentional (e.g. NVDA in AI + Chips); helpers
+  deduplicate before use.
+- MOG.A is kept in its true ticker form ("." not "-"). Consumers that need
+  a filesystem-safe name translate dots to dashes themselves (see
+  `src/data/max_history.py::_ticker_to_path`).
 
-Last Updated: 2026-05-21 (pruned 25 non-viable tickers with no market data)
+Last Updated: 2026-05-21 (synced to 16-sector / 560-unique universe)
 """
 
 from __future__ import annotations
@@ -38,79 +48,120 @@ __all__ = [
     "sector_for",
 ]
 
-# Primary data structure: Sector → list of high-quality, liquid US-listed tickers.
+# Primary data structure: Sector → list of US-listed tickers.
 SECTOR_TICKERS: dict[str, list[str]] = {
     "AI": [
-        "NVDA", "AVGO", "AMD", "TSM", "ARM", "ASML", "AMAT", "LRCX", "KLAC", "MU",
-        "INTC", "QCOM", "MRVL", "MPWR", "ON", "ADI", "TXN", "NXPI", "SWKS", "MCHP",
-        "CRWD", "PANW", "FTNT", "ZS", "SNOW", "DDOG", "NET", "MDB", "ESTC",
-        "ANET", "CIEN", "FFIV", "NTAP", "WDC", "STX", "PSTG", "SMCI", "VRT",
-        "ETN", "GEV", "AMZN", "MSFT", "GOOGL", "ORCL", "IBM", "CSCO", "CDNS", "SNPS"
+        "NVDA", "AVGO", "AMD", "TSM", "ARM", "MU", "MRVL", "QCOM", "ASML", "AMAT", "LRCX",
+        "KLAC", "CDNS", "SNPS", "MSFT", "GOOGL", "AMZN", "META", "ORCL", "CRM", "IBM",
+        "PLTR", "NOW", "SNOW", "DDOG", "NET", "MDB", "ESTC", "CRWD", "PANW", "FTNT", "ZS",
+        "ANET", "CIEN", "FFIV", "CSCO", "NTAP", "PSTG", "WDC", "STX", "SMCI", "DELL", "HPE",
+        "VRT", "ETN", "GEV", "PATH", "APP", "TSLA", "AI",
     ],
     "Chips": [
-        "NVDA", "AVGO", "AMD", "TSM", "ASML", "AMAT", "LRCX", "KLAC", "MU", "INTC",
-        "QCOM", "MRVL", "MPWR", "ON", "ADI", "TXN", "NXPI", "SWKS", "MCHP", "TER",
-        "COHR", "AEHR", "ACLS", "FORM", "UCTT", "ENTG", "AMKR", "SIMO", "SLAB", "CRUS",
-        "DIOD", "MTSI", "POWI", "SYNA", "SMTC", "MP", "LSCC", "QRVO"
+        "NVDA", "AVGO", "AMD", "TSM", "ASML", "INTC", "QCOM", "MRVL", "MU", "ARM", "ADI",
+        "TXN", "NXPI", "MCHP", "ON", "SWKS", "MPWR", "MTSI", "POWI", "SLAB", "CRUS", "DIOD",
+        "SYNA", "SMTC", "LSCC", "QRVO", "ALGM", "VSH", "LFUS", "AMAT", "LRCX", "KLAC",
+        "TER", "ENTG", "KLIC", "ONTO", "NVMI", "AEHR", "ACLS", "FORM", "UCTT", "ICHR",
+        "VECO", "PLAB", "CAMT", "COHU", "AMKR", "SIMO", "COHR", "RMBS",
     ],
     "Energy": [
-        "VST", "CEG", "TLN", "OKLO", "BWXT", "SMR", "LEU", "UEC", "UUUU", "CCJ",
-        "NXE", "DNN", "URG", "LTBR",
-        "FLR", "PWR", "EME", "FIX", "APG", "ACM", "J", "KBR", "TTEK",
-        "ETN", "GEV", "HUBB", "ENS", "EXC", "XEL", "AEP",
-        "DUK", "NEE", "SO", "D", "ED", "FE", "PEG", "ETR", "CNP", "AES", "BEPC", "BEP"
-    ],
-    # New/expanded for doc consistency (README/PROJECT). Quality-focused lists;
-    # overlap with existing sectors is intentional and deduped by all_tickers().
-    "Batteries": [
-        "ENPH", "SEDG", "FSLR", "RUN", "STEM", "FLNC", "BE", "PLUG", "BLDP",
-        "FCEL", "CWEN", "AY", "ORA", "HASI", "NXT", "AMSC", "POWL", "ENS",
-        "SPWR", "JKS", "CSIQ", "ARRY", "SHLS"
-    ],
-    "Quantum": [
-        "IONQ", "QBTS", "RGTI", "QUBT", "ARQQ", "QMCO"
-    ],
-    "Defense": [
-        "LMT", "RTX", "NOC", "GD", "BA", "LHX", "HII", "TDG", "HEI", "KTOS",
-        "AVAV", "CW", "DRS", "ESLT", "HXL", "BWXT", "TXT", "SPR", "MOG-A",
-        "TDY"
-    ],
-    "Nuclear": [
-        "CCJ", "UEC", "UUUU", "NXE", "DNN", "BWXT", "LEU", "OKLO", "SMR",
-        "CEG", "VST", "TLN"
+        "VST", "CEG", "TLN", "NRG", "EXC", "XEL", "AEP", "DUK", "NEE", "SO", "D", "ED",
+        "FE", "PEG", "ETR", "CNP", "AES", "DTE", "SRE", "AEE", "WEC", "PCG", "OKLO", "SMR",
+        "BWXT", "LEU", "CCJ", "UEC", "UUUU", "NXE", "DNN", "NNE", "PWR", "EME", "FIX",
+        "APG", "ACM", "J", "KBR", "TTEK", "FLR", "PRIM", "MTZ", "ETN", "GEV", "HUBB", "ENS",
+        "NXT", "BEPC", "FSLR",
     ],
     "Space": [
-        "RKLB", "ASTS", "LUNR", "RDW", "SPCE", "KTOS", "NOC", "LMT", "BA", "RTX",
-        "GD", "TDY", "HON", "LHX", "HII", "PL", "SPIR", "SIDU",
-        "MNTS", "KSCP", "SATL", "IONQ", "QBTS", "RGTI", "MDA"
+        "RKLB", "ASTS", "LUNR", "RDW", "PL", "SPIR", "BKSY", "SATL", "SIDU", "SPCE", "MNTS",
+        "VOYG", "FLY", "KRGN", "MDA", "NOC", "LMT", "RTX", "GD", "BA", "LHX", "HII", "TDG",
+        "HEI", "TDY", "KTOS", "MRCY", "AVAV", "CW", "DRS", "ESLT", "HXL", "BWXT", "ACHR",
+        "JOBY", "BLDE", "EVTL", "RCAT", "ONDS", "EH", "UMAC", "IRDM", "GSAT", "VSAT",
+        "SATS", "PSN", "CACI", "SAIC", "BAH", "LDOS",
     ],
     "Robotics": [
-        "ISRG", "TER", "PATH", "SYM", "BDTX", "NOVT",
-        "GTES", "EMR", "ROK", "AME", "ITW", "DOV", "NDSN", "MIDD", "GTLS", "FLOW",
-        "ST", "ATS", "CW", "KAI", "HLIO", "IEX", "ITT",
-        "RBC", "CR", "GGG", "LECO", "MWA", "WTS", "FELE", "ROCK"
+        "ISRG", "ABB", "SYM", "PATH", "IRBT", "SERV", "RR", "KSCP", "ROK", "EMR", "AME",
+        "ITW", "DOV", "NDSN", "MIDD", "GTLS", "IEX", "ITT", "RBC", "CR", "GGG", "LECO",
+        "FELE", "JBT", "ATS", "GTES", "CGNX", "FARO", "NOVT", "ZBRA", "KEYS", "MBLY", "AUR",
+        "LAZR", "OUST", "AEVA", "INVZ", "ARBE", "SSYS", "DDD", "NNDM", "MTLS", "XMTR",
+        "PRLB", "TER", "PRCT", "INSP", "RXST", "HLIO", "KAI",
     ],
     "Bio": [
-        "AMGN", "GILD", "VRTX", "REGN", "BIIB", "MRNA", "BNTX", "CRSP", "NTLA", "EDIT",
-        "BEAM", "RCKT", "FOLD", "ALNY", "SRPT", "EXEL", "INCY",
-        "PTCT", "NBIX", "UTHR", "VTRS", "BMY", "ABBV", "LLY", "MRK", "PFE", "JNJ",
-        "AZN", "NVO", "SNY", "GSK", "TAK", "RHHBY", "BAYRY", "ILMN",
-        "PACB", "TWST", "TXG"
+        "LLY", "MRK", "PFE", "JNJ", "ABBV", "BMY", "AZN", "NVO", "SNY", "GSK", "RHHBY",
+        "AMGN", "GILD", "VRTX", "REGN", "BIIB", "MRNA", "BNTX", "ILMN", "PACB", "TWST",
+        "TXG", "SRPT", "EXEL", "INCY", "NBIX", "UTHR", "JAZZ", "ALKS", "FOLD", "ALNY",
+        "INSM", "ASND", "HALO", "CRSP", "NTLA", "BEAM", "EDIT", "RCKT", "ABCL", "PTCT",
+        "KRYS", "ARWR", "IONS", "MDGL", "VKTX", "AKRO", "AXSM", "RVMD", "NUVL",
     ],
     "Software": [
-        "MSFT", "GOOGL", "AMZN", "CRM", "ADBE", "ORCL", "SAP", "SNOW", "DDOG", "NET",
-        "MDB", "ESTC", "ANET", "PANW", "CRWD", "FTNT", "ZS", "PLTR", "PATH",
-        "SYM", "UI", "UPST", "AI", "HUBS", "WDAY", "NOW", "TEAM", "DOCU",
-        "OKTA", "ZM", "TWLO", "RNG", "BOX", "ASAN", "TTD", "APP", "ROKU",
-        "PINS", "SNAP", "META", "IBM", "CSCO", "CDNS", "SNPS", "ADSK", "INTU"
+        "MSFT", "GOOGL", "AMZN", "ORCL", "META", "IBM", "CSCO", "CRM", "ADBE", "SAP",
+        "INTU", "ADSK", "NOW", "WDAY", "TEAM", "HUBS", "SNOW", "DDOG", "NET", "MDB", "ESTC",
+        "CFLT", "CRWD", "PANW", "FTNT", "ZS", "S", "GTLB", "FROG", "DT", "DOCU", "OKTA",
+        "ZM", "TWLO", "RNG", "BOX", "ASAN", "PLTR", "PATH", "AI", "UPST", "TTD", "APP",
+        "ROKU", "PINS", "SNAP", "RBLX", "CDNS", "SNPS", "BSY",
     ],
     "Misc": [
-        "AAPL", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "BLK", "BX", "KKR", "SCHW",
-        "KO", "PEP", "PG", "JNJ", "MCD", "SBUX", "COST", "WMT", "TGT", "UNH", "ABBV",
-        "MRK", "PFE", "TMUS", "VZ", "T", "CMCSA", "CHTR", "DIS", "NFLX", "BKNG", "MAR",
-        "HLT", "UBER", "DASH", "ABNB", "SHOP", "MELI", "PDD", "BABA", "JD", "EA", "TTWO",
-        "RBLX", "PYPL", "HOOD", "COIN", "SE", "SPOT", "LYFT"
-    ]
+        "AAPL", "JPM", "BAC", "WFC", "GS", "MS", "SCHW", "V", "MA", "BLK", "BX", "KKR",
+        "KO", "PEP", "PG", "COST", "WMT", "TGT", "MCD", "SBUX", "UNH", "MRK", "PFE", "JNJ",
+        "TMUS", "VZ", "T", "CMCSA", "DIS", "NFLX", "SPOT", "BKNG", "MAR", "HLT", "UBER",
+        "LYFT", "ABNB", "DASH", "SHOP", "MELI", "PDD", "BABA", "JD", "SE", "EA", "TTWO",
+        "SQ", "PYPL", "HOOD", "COIN",
+    ],
+    "AI_micro": [
+        "SOUN", "BBAI", "AI", "TEM", "RXRX", "SDGR", "VERI", "DOMO", "INOD", "CRNC", "NBIS",
+        "APLD", "CRDO", "ALAB", "DOCN", "POWL", "AMSC", "AGYS", "PRGS", "DGII", "IONQ",
+        "RGTI", "QBTS", "ARQQ", "QUBT", "PATH", "SERV", "AUR", "MBLY", "INVZ", "ARBE",
+        "AEVA", "LAZR", "OUST", "CGNT", "UPST", "LMND", "EVLV", "KVYO", "BRZE", "AMPL",
+        "PD", "FROG", "PRO", "NCNO", "CXM", "WK", "BIGC", "CLBT", "INTA",
+    ],
+    "Chips_micro": [
+        "AEHR", "ACLS", "FORM", "UCTT", "ONTO", "NVMI", "CAMT", "KLIC", "COHU", "ICHR",
+        "VECO", "PLAB", "ENTG", "SLAB", "CRUS", "DIOD", "MTSI", "POWI", "SYNA", "SMTC",
+        "LSCC", "QRVO", "SWKS", "ALGM", "VSH", "LFUS", "WOLF", "NVTS", "TGAN", "AXTI",
+        "SIMO", "RMBS", "PENG", "IMOS", "AMKR", "TSEM", "CEVA", "PI", "SITM", "ATOM",
+        "QUIK", "HIMX", "MX", "INDI", "AOSL", "EMKR", "PXLW", "CRDO", "KN", "VLN",
+    ],
+    "Energy_micro": [
+        "OKLO", "SMR", "LEU", "BWXT", "NNE", "ASPI", "UEC", "UUUU", "NXE", "DNN", "URG",
+        "LTBR", "POWL", "NXT", "AMSC", "FLNC", "STEM", "HASI", "ENS", "ENPH", "SEDG",
+        "ARRY", "SHLS", "RUN", "CSIQ", "JKS", "AMPS", "BE", "PLUG", "BLDP", "FCEL", "CLNE",
+        "CWEN", "AY", "ORA", "BEPC", "PRIM", "MYRG", "MTZ", "CRGY", "PR", "CIVI", "CRC",
+        "AESI", "PARR", "CVI", "CEIX", "AROC", "KGS", "WTTR",
+    ],
+    "Space_micro": [
+        "LUNR", "RDW", "PL", "SPIR", "BKSY", "SATL", "SIDU", "MNTS", "SPCE", "IRDM", "GSAT",
+        "VSAT", "SATS", "VOYG", "KRGN", "FLY", "MDA", "KTOS", "AVAV", "RCAT", "UMAC",
+        "ONDS", "JOBY", "ACHR", "EH", "BLDE", "EVTL", "MRCY", "ATRO", "AIR", "CDRE", "VVX",
+        "DRS", "ESLT", "HXL", "WWD", "ESE", "PSN", "CACI", "SAIC", "HII", "TGI", "MOG.A",
+        "CW", "BWXT", "NPK", "ARLO", "ATEX", "AILE", "GILT",
+    ],
+    "Robotics_micro": [
+        "SERV", "RR", "KSCP", "PATH", "IRBT", "FARO", "NOVT", "CGNX", "ZBRA", "MBLY", "AUR",
+        "LAZR", "OUST", "AEVA", "INVZ", "ARBE", "NNDM", "SSYS", "DDD", "DM", "MTLS", "MKFG",
+        "VLD", "XMTR", "PRLB", "JBT", "MIDD", "NDSN", "GTLS", "ATS", "HLIO", "KAI", "ESE",
+        "AOS", "WTS", "MWA", "ITRI", "BMI", "RBC", "LECO", "ATKR", "AZZ", "NPO", "TEX",
+        "OSK", "ALLE", "PRCT", "INSP", "RXST", "NVEE",
+    ],
+    "Bio_micro": [
+        "CRSP", "NTLA", "BEAM", "EDIT", "RCKT", "SRPT", "EXEL", "INCY", "PTCT", "NBIX",
+        "UTHR", "FOLD", "KRYS", "JAZZ", "ALKS", "ARWR", "IONS", "RNA", "NUVL", "RLAY",
+        "RVMD", "CRNX", "MDGL", "AKRO", "VKTX", "AXSM", "SUPN", "DNLI", "RYTM", "HRMY",
+        "ALEC", "INSM", "ASND", "HALO", "CORT", "PCVX", "ABCL", "RGNX", "FATE", "IOVA",
+        "CYTK", "BCRX", "PRTA", "KROS", "KYMR", "JANX", "PCRX", "RXRX", "SDGR", "RIGL",
+    ],
+    "Software_micro": [
+        "AI", "PATH", "SOUN", "BBAI", "BRZE", "AMPL", "KVYO", "CXM", "SMWB", "FROG", "PD",
+        "GTLB", "DT", "ESTC", "S", "QLYS", "TENB", "RPD", "VRNS", "CLBT", "JAMF", "CFLT",
+        "DOMO", "VERI", "NCNO", "ALKT", "BL", "WK", "PEGA", "APPN", "INTA", "ALRM", "DSGX",
+        "CWAN", "BIGC", "BOX", "DOCN", "EVCM", "EXFY", "ASAN", "FIVN", "BSY", "PRGS", "PRO",
+        "INOD", "DGII", "NABL", "CRNC", "PCTY", "WIX",
+    ],
+    "Misc_micro": [
+        "SOFI", "AFRM", "UPST", "LMND", "ROOT", "STNE", "PAGS", "DLO", "OPRA", "MARA",
+        "RIOT", "CLSK", "WULF", "CIFR", "HUT", "BTBT", "IREN", "TIGR", "FUTU", "SNAP",
+        "ROKU", "MTCH", "BMBL", "ETSY", "RVLV", "CART", "WIX", "CHWY", "YELP", "TREE",
+        "LYFT", "TRIP", "PENN", "OPEN", "Z", "RDFN", "COMP", "RKT", "CROX", "YETI", "CAVA",
+        "SG", "WRBY", "BROS", "PLNT", "FIGS", "PTON", "ZIP", "ARKO", "RUM",
+    ],
 }
 
 # Backward compatibility alias

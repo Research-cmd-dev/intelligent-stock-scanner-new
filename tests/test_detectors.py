@@ -105,13 +105,23 @@ def test_all_tickers_no_duplicates_and_no_etf_tickers() -> None:
 
 
 def test_readme_sectors_are_present_in_config() -> None:
-    """Every sector named in README.md must have an entry in SECTOR_TICKERS."""
+    """Every major sector named in README.md must have an entry in SECTOR_TICKERS.
+
+    The universe is organized as 8 large-cap-led "majors" paired with 8 smaller-
+    cap "_micro" lanes. Themes that previously had standalone sectors (Batteries,
+    Quantum, Defense, Nuclear) are now folded into the relevant majors / micros
+    (Energy + Energy_micro for batteries/nuclear, AI_micro for quantum, Space
+    for defense primes).
+    """
     from src.config.sectors import SECTOR_TICKERS
 
-    # From README intro + PROJECT philosophy
-    required = {"AI", "Chips", "Energy", "Bio", "Space", "Batteries", "Quantum", "Defense", "Robotics"}
-    missing = [s for s in required if s not in SECTOR_TICKERS]
-    assert not missing, f"sectors mentioned in docs but missing from SECTOR_TICKERS: {missing}"
+    majors = {"AI", "Chips", "Energy", "Space", "Robotics", "Bio", "Software", "Misc"}
+    missing_majors = [s for s in majors if s not in SECTOR_TICKERS]
+    assert not missing_majors, f"major sectors missing from SECTOR_TICKERS: {missing_majors}"
+
+    micros = {f"{m}_micro" for m in majors}
+    missing_micros = [s for s in micros if s not in SECTOR_TICKERS]
+    assert not missing_micros, f"micro sectors missing from SECTOR_TICKERS: {missing_micros}"
 
 
 def test_match_to_row_is_dashboard_ready() -> None:
